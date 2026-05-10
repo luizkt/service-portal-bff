@@ -36,6 +36,7 @@ src/main/java/com/serviceportal/bff/
 ├── BffApplication.java
 ├── config/
 │   ├── BffProperties.java          # @ConfigurationProperties("bff.orchestrator")
+│   ├── AuthProperties.java         # @ConfigurationProperties("bff.auth")
 │   ├── WebClientConfig.java        # Bean WebClient do orquestrador
 │   └── SecurityConfig.java         # OAuth2 Resource Server + CORS
 ├── client/
@@ -43,14 +44,23 @@ src/main/java/com/serviceportal/bff/
 │   └── OrchestratorClient.java     # Chamadas WebClient ao orquestrador
 ├── controller/
 │   ├── BffMenuController.java      # /bff/health, /bff/menu, /bff/ui/{id}
+│   ├── AuthConfigController.java   # /bff/auth/config (público — OAuth2/PKCE)
 │   └── FlowProxyController.java    # /bff/flows[...], /bff/orchestrate/{ver}/{id}
 └── dto/
     ├── LoginRequest.java
     ├── LoginResponse.java
+    ├── AuthConfigDto.java
     ├── MenuItemDto.java
     └── UiSchemaDto.java
 src/main/resources/
 └── application.yml
+src/test/java/com/serviceportal/bff/
+├── config/
+│   ├── AuthPropertiesTest.java
+│   ├── SecurityConfigTest.java
+│   └── SecurityConfigIT.java       # @SpringBootTest + MockMvc
+└── controller/
+    └── AuthConfigControllerTest.java
 ```
 
 ---
@@ -79,6 +89,13 @@ bff:
   auth:
     # URL pública — deve bater com o claim "iss" dos tokens emitidos pelo Authentik
     issuer-uri: ${AUTHENTIK_ISSUER_URI:http://localhost:9000/application/o/service-portal/}
+    # Client ID público da SPA cadastrado no Authentik (provider OAuth2/OIDC)
+    client-id: ${AUTHENTIK_CLIENT_ID:service-portal-spa}
+    # Scopes que o frontend solicita no /authorize
+    scopes:
+      - openid
+      - profile
+      - email
 ```
 
 ### Variáveis de ambiente
@@ -91,6 +108,7 @@ bff:
 | `ORCHESTRATOR_PASSWORD` | Senha do orquestrador | `admin` |
 | `AUTHENTIK_JWKS_URI` | Endpoint JWKS do Authentik (interno) | `http://localhost:9000/application/o/service-portal/jwks/` |
 | `AUTHENTIK_ISSUER_URI` | Issuer público do Authentik (validação do claim `iss`) | `http://localhost:9000/application/o/service-portal/` |
+| `AUTHENTIK_CLIENT_ID` | Client ID público da SPA exposto pelo `/bff/auth/config` | `service-portal-spa` |
 
 ### Cache de token do orquestrador
 
@@ -120,13 +138,14 @@ O BFF sobe em `http://localhost:8081`.
 
 ## API
 
-Todos os endpoints (exceto `/bff/health` e `/actuator/health|info`) exigem `Authorization: Bearer <token>` emitido pelo Authentik.
+Todos os endpoints (exceto `/bff/health`, `/bff/auth/config` e `/actuator/health|info`) exigem `Authorization: Bearer <token>` emitido pelo Authentik.
 
 ### Endpoints
 
 | Método | Endpoint | Descrição |
 |---|---|---|
 | GET | `/bff/health` | Healthcheck (público) |
+| GET | `/bff/auth/config` | Configuração OAuth2/PKCE para o SPA (público — issuer, client_id, scopes) |
 | GET | `/bff/menu` | Itens da sidebar (Server Driven UI) |
 | GET | `/bff/ui/{featureId}` | Schema JSON da feature |
 | GET | `/bff/flows` | Lista fluxos ativos (proxy) |
@@ -177,6 +196,20 @@ Todos os endpoints (exceto `/bff/health` e `/actuator/health|info`) exigem `Auth
 
 > Para adicionar uma nova feature: incluir um item em `BffMenuController.menu()`, um case em `uiSchema(...)` e o componente correspondente no `ComponentRenderer` do frontend.
 
+#### `GET /bff/auth/config`
+
+Endpoint **público** consumido pela SPA na inicialização — descreve o IdP sem hardcoded no bundle.
+
+```json
+{
+  "issuerUri": "http://localhost:9000/application/o/service-portal/",
+  "clientId": "service-portal-spa",
+  "scopes": ["openid", "profile", "email"]
+}
+```
+
+A SPA usa estes valores para montar a URL de `/authorize` (PKCE/S256), redirecionar o usuário ao Authentik e trocar o `code` recebido no callback por um access token.
+
 ### Proxy de fluxos
 
 ```bash
@@ -211,11 +244,36 @@ curl -X POST http://localhost:8081/bff/orchestrate/v1/meu-fluxo \
 - Valida assinatura + claim `iss` contra `AUTHENTIK_ISSUER_URI`
 - `STATELESS` — sem sessão, sem CSRF
 - CORS liberado em `/bff/**` para qualquer origem (ajustar em produção)
-- Endpoints públicos: `/bff/health`, `/actuator/health`, `/actuator/info`
+- Endpoints públicos: `/bff/health`, `/bff/auth/config`, `/actuator/health`, `/actuator/info`
+
+### Fluxo OAuth2/PKCE (SPA pública)
+
+```
+1. SPA → GET /bff/auth/config             → issuer, client_id, scopes
+2. SPA → window.location = ${issuer}authorize/?…&code_challenge=…&state=…
+3. Authentik → redirect /auth/callback?code=…&state=…
+4. SPA → POST ${issuer}token/             (code + code_verifier + client_id)
+5. SPA → guarda access_token em sessionStorage
+6. SPA → BFF: Authorization: Bearer <access_token>
+7. BFF valida JWT (assinatura JWKS + iss) — só então responde
+```
+
+Logout: SPA chama `${issuer}end-session/?id_token_hint=…&post_logout_redirect_uri=…`. O BFF não mantém sessão — basta apagar o token do `sessionStorage`. Em respostas 401 do BFF, o frontend invalida a sessão local automaticamente.
 
 ### Outbound — BFF → orquestrador
 
 `OrchestratorAuthService` faz o login server-to-server e injeta o `Bearer` em cada request via `OrchestratorClient`. O usuário final do portal nunca vê esse token.
+
+---
+
+## Testes e cobertura
+
+```bash
+./gradlew test jacocoTestReport jacocoTestCoverageVerification
+# Relatório HTML: build/reports/jacoco/test/html/index.html
+```
+
+O gate `jacocoTestCoverageVerification` exige **≥ 95% de cobertura de instruções** nas classes da feature de auth (`SecurityConfig`, `AuthProperties`, `AuthConfigController`, `AuthConfigDto`). Cobertura atual: **100%** (10 testes).
 
 ---
 
@@ -227,6 +285,7 @@ docker run --rm -p 8081:8081 \
   -e ORCHESTRATOR_URL=http://orquestrador:8080 \
   -e AUTHENTIK_JWKS_URI=http://authentik-server:9000/application/o/service-portal/jwks/ \
   -e AUTHENTIK_ISSUER_URI=http://localhost:9000/application/o/service-portal/ \
+  -e AUTHENTIK_CLIENT_ID=service-portal-spa \
   service-portal-bff
 ```
 

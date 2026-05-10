@@ -22,6 +22,13 @@ bff:
   auth:
     # URL pública: deve corresponder ao campo "iss" dos tokens emitidos pelo Authentik
     issuer-uri: ${AUTHENTIK_ISSUER_URI:http://localhost:9000/application/o/service-portal/}
+    # Client ID público da SPA cadastrado no Authentik (provider OAuth2/OIDC)
+    client-id: ${AUTHENTIK_CLIENT_ID:service-portal-spa}
+    # Scopes que o frontend solicita no /authorize
+    scopes:
+      - openid
+      - profile
+      - email
 
 management:
   endpoints:

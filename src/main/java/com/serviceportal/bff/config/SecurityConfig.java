@@ -1,6 +1,7 @@
 package com.serviceportal.bff.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -19,6 +20,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableConfigurationProperties(AuthProperties.class)
 public class SecurityConfig {
 
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
@@ -35,7 +37,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // Endpoints públicos — sem token
-                        .requestMatchers("/bff/health", "/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/bff/health", "/bff/auth/config",
+                                "/actuator/health", "/actuator/info").permitAll()
                         // Todos os demais endpoints exigem token Authentik válido
                         .anyRequest().authenticated()
                 )

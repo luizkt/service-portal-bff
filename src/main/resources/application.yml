@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: service-portal-bff
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # URL interna: acessada pelo container BFF via DNS do Docker
+          jwk-set-uri: ${AUTHENTIK_JWKS_URI:http://localhost:9000/application/o/service-portal/jwks/}
+
+server:
+  port: ${SERVER_PORT:8081}
+
+bff:
+  orchestrator:
+    base-url: ${ORCHESTRATOR_URL:http://localhost:8080}
+    username: ${ORCHESTRATOR_USERNAME:admin}
+    password: ${ORCHESTRATOR_PASSWORD:admin}
+  auth:
+    # URL pública: deve corresponder ao campo "iss" dos tokens emitidos pelo Authentik
+    issuer-uri: ${AUTHENTIK_ISSUER_URI:http://localhost:9000/application/o/service-portal/}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.serviceportal.bff: DEBUG

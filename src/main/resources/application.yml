@@ -16,9 +16,15 @@ server:
 
 bff:
   orchestrator:
+    # Apenas execução de fluxos — POST /api/orchestrate/{version}/{flowId}
     base-url: ${ORCHESTRATOR_URL:http://localhost:8080}
     username: ${ORCHESTRATOR_USERNAME:admin}
     password: ${ORCHESTRATOR_PASSWORD:admin}
+  manager:
+    # CRUD de fluxos — service-portal-manager
+    base-url: ${MANAGER_URL:http://localhost:8082}
+    username: ${MANAGER_USERNAME:admin}
+    password: ${MANAGER_PASSWORD:admin}
   auth:
     # URL pública: deve corresponder ao campo "iss" dos tokens emitidos pelo Authentik
     issuer-uri: ${AUTHENTIK_ISSUER_URI:http://localhost:9000/application/o/service-portal/}

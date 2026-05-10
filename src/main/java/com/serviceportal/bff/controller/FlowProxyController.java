@@ -1,5 +1,6 @@
 package com.serviceportal.bff.controller;
 
+import com.serviceportal.bff.client.ManagerClient;
 import com.serviceportal.bff.client.OrchestratorClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -8,25 +9,47 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
-import java.util.List;
 import java.util.Map;
 
+/**
+ * Proxy do BFF:
+ *   - CRUD de fluxos → service-portal-manager (`ManagerClient`)
+ *   - Execução do fluxo → generic-orchestrator (`OrchestratorClient`)
+ */
 @RestController
 @RequestMapping("/bff")
 @RequiredArgsConstructor
 public class FlowProxyController {
 
-    private final OrchestratorClient client;
+    private final ManagerClient managerClient;
+    private final OrchestratorClient orchestratorClient;
 
     @GetMapping("/flows")
-    public ResponseEntity<List<Map<String, Object>>> listFlows() {
-        return ResponseEntity.ok(client.listFlows());
+    public ResponseEntity<Map<String, Object>> listFlows(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort) {
+        return ResponseEntity.ok(managerClient.listFlows(page, size, sort));
     }
 
-    @GetMapping("/flows/{flowId}")
-    public ResponseEntity<Map<String, Object>> getFlow(@PathVariable String flowId) {
+    @GetMapping("/flows/{flowId}/{versao}")
+    public ResponseEntity<Map<String, Object>> getFlow(@PathVariable String flowId,
+                                                       @PathVariable String versao) {
         try {
-            return ResponseEntity.ok(client.getFlow(flowId));
+            return ResponseEntity.ok(managerClient.getFlow(flowId, versao));
+        } catch (WebClientResponseException.NotFound e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping(value = "/flows/{flowId}/{versao}/yaml",
+            produces = {"application/x-yaml", MediaType.TEXT_PLAIN_VALUE})
+    public ResponseEntity<String> getFlowYaml(@PathVariable String flowId,
+                                              @PathVariable String versao) {
+        try {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType("application/x-yaml"))
+                    .body(managerClient.getFlowYaml(flowId, versao));
         } catch (WebClientResponseException.NotFound e) {
             return ResponseEntity.notFound().build();
         }
@@ -35,24 +58,26 @@ public class FlowProxyController {
     @PostMapping(value = "/flows",
             consumes = {MediaType.TEXT_PLAIN_VALUE, "application/x-yaml", "text/yaml", MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<Map<String, Object>> createFlow(@RequestBody String yaml) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(client.createFlow(yaml));
+        return ResponseEntity.status(HttpStatus.CREATED).body(managerClient.createFlow(yaml));
     }
 
-    @PutMapping(value = "/flows/{flowId}",
+    @PutMapping(value = "/flows/{flowId}/{versao}",
             consumes = {MediaType.TEXT_PLAIN_VALUE, "application/x-yaml", "text/yaml", MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<Map<String, Object>> updateFlow(@PathVariable String flowId,
+                                                          @PathVariable String versao,
                                                           @RequestBody String yaml) {
         try {
-            return ResponseEntity.ok(client.updateFlow(flowId, yaml));
+            return ResponseEntity.ok(managerClient.updateFlow(flowId, versao, yaml));
         } catch (WebClientResponseException.NotFound e) {
             return ResponseEntity.notFound().build();
         }
     }
 
-    @DeleteMapping("/flows/{flowId}")
-    public ResponseEntity<Void> deleteFlow(@PathVariable String flowId) {
+    @DeleteMapping("/flows/{flowId}/{versao}")
+    public ResponseEntity<Void> deleteFlow(@PathVariable String flowId,
+                                           @PathVariable String versao) {
         try {
-            client.deleteFlow(flowId);
+            managerClient.deleteFlow(flowId, versao);
             return ResponseEntity.noContent().build();
         } catch (WebClientResponseException.NotFound e) {
             return ResponseEntity.notFound().build();
@@ -63,6 +88,6 @@ public class FlowProxyController {
     public ResponseEntity<Map<String, Object>> orchestrate(@PathVariable String version,
                                                            @PathVariable String flowId,
                                                            @RequestBody Map<String, Object> payload) {
-        return ResponseEntity.ok(client.orchestrate(version, flowId, payload));
+        return ResponseEntity.ok(orchestratorClient.orchestrate(version, flowId, payload));
     }
 }

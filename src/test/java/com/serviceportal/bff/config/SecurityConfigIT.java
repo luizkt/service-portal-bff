@@ -10,6 +10,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.serviceportal.bff.client.ManagerAuthService;
+import com.serviceportal.bff.client.ManagerClient;
 import com.serviceportal.bff.client.OrchestratorAuthService;
 import com.serviceportal.bff.client.OrchestratorClient;
 
@@ -25,7 +27,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "bff.auth.client-id=test-spa",
         "bff.orchestrator.base-url=http://localhost:9998",
         "bff.orchestrator.username=u",
-        "bff.orchestrator.password=p"
+        "bff.orchestrator.password=p",
+        "bff.manager.base-url=http://localhost:9997",
+        "bff.manager.username=u",
+        "bff.manager.password=p"
 })
 class SecurityConfigIT {
 
@@ -35,6 +40,8 @@ class SecurityConfigIT {
     @MockBean private JwtDecoder jwtDecoder;
     @MockBean private OrchestratorAuthService orchestratorAuthService;
     @MockBean private OrchestratorClient orchestratorClient;
+    @MockBean private ManagerAuthService managerAuthService;
+    @MockBean private ManagerClient managerClient;
 
     @Test @DisplayName("/bff/auth/config é público e retorna 200 sem token")
     void authConfigPublico() throws Exception {

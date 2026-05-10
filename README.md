@@ -4,15 +4,18 @@ Backend for Frontend do Service Portal, baseado em Java 21 LTS + Spring Boot 3.4
 
 ## Visão Geral
 
-Camada intermediária entre o frontend React e o `generic-orchestrator`. Aplica o padrão **Server Driven UI**: o BFF descreve dinamicamente quais features aparecem na sidebar e qual schema de UI cada feature usa, deixando o frontend "burro" (sem regras de negócio).
+Camada intermediária entre o frontend React e os serviços de backend. Aplica o padrão **Server Driven UI**: o BFF descreve dinamicamente quais features aparecem na sidebar e qual schema de UI cada feature usa, deixando o frontend "burro" (sem regras de negócio).
 
 Responsabilidades:
 
 - **Menu e UI Schema**: expõe `/bff/menu` e `/bff/ui/{featureId}` para o frontend renderizar a navegação e cada tela
-- **Proxy de fluxos**: encapsula o CRUD de fluxos do orquestrador e a execução (`/bff/flows`, `/bff/orchestrate/{version}/{flowId}`)
-- **Autenticação dual**:
-  - Inbound (frontend → BFF): valida tokens JWT emitidos pelo Authentik via OAuth2 Resource Server
-  - Outbound (BFF → orquestrador): autentica server-to-server em `POST /api/auth/login` do orquestrador, mantendo o token em cache e renovando automaticamente
+- **Proxy de fluxos**:
+  - **CRUD** → repassa para o `service-portal-manager` (porta 8082) — único dono da collection `workflows`
+  - **Execução** → repassa para o `generic-orchestrator` (porta 8080) — `POST /bff/orchestrate/{version}/{flowId}`
+- **Autenticação tripla**:
+  - Inbound (frontend → BFF): valida tokens JWT do Authentik via OAuth2 Resource Server
+  - Outbound 1 (BFF → Manager): server-to-server `POST /api/auth/login`, token em cache renovado automaticamente
+  - Outbound 2 (BFF → Orquestrador): server-to-server `POST /api/auth/login`, token em cache renovado automaticamente
 
 ---
 
@@ -36,16 +39,19 @@ src/main/java/com/serviceportal/bff/
 ├── BffApplication.java
 ├── config/
 │   ├── BffProperties.java          # @ConfigurationProperties("bff.orchestrator")
+│   ├── ManagerProperties.java      # @ConfigurationProperties("bff.manager")
 │   ├── AuthProperties.java         # @ConfigurationProperties("bff.auth")
-│   ├── WebClientConfig.java        # Bean WebClient do orquestrador
+│   ├── WebClientConfig.java        # Beans WebClient (orchestrator + manager)
 │   └── SecurityConfig.java         # OAuth2 Resource Server + CORS
 ├── client/
-│   ├── OrchestratorAuthService.java# Login server-to-server + cache de token
-│   └── OrchestratorClient.java     # Chamadas WebClient ao orquestrador
+│   ├── OrchestratorAuthService.java# Login server-to-server (orquestrador)
+│   ├── OrchestratorClient.java     # POST /api/orchestrate (única chamada restante)
+│   ├── ManagerAuthService.java     # Login server-to-server (Manager)
+│   └── ManagerClient.java          # CRUD: list/get/create/update/delete + getYaml
 ├── controller/
 │   ├── BffMenuController.java      # /bff/health, /bff/menu, /bff/ui/{id}
 │   ├── AuthConfigController.java   # /bff/auth/config (público — OAuth2/PKCE)
-│   └── FlowProxyController.java    # /bff/flows[...], /bff/orchestrate/{ver}/{id}
+│   └── FlowProxyController.java    # CRUD → Manager; orchestrate → Orchestrator
 └── dto/
     ├── LoginRequest.java
     ├── LoginResponse.java
@@ -55,12 +61,18 @@ src/main/java/com/serviceportal/bff/
 src/main/resources/
 └── application.yml
 src/test/java/com/serviceportal/bff/
+├── client/
+│   ├── ManagerAuthServiceTest.java
+│   ├── ManagerClientTest.java
+│   ├── OrchestratorAuthServiceTest.java
+│   └── OrchestratorClientTest.java
 ├── config/
 │   ├── AuthPropertiesTest.java
 │   ├── SecurityConfigTest.java
 │   └── SecurityConfigIT.java       # @SpringBootTest + MockMvc
 └── controller/
-    └── AuthConfigControllerTest.java
+    ├── AuthConfigControllerTest.java
+    └── FlowProxyControllerTest.java
 ```
 
 ---
@@ -83,9 +95,15 @@ server:
 
 bff:
   orchestrator:
+    # Apenas execução de fluxos — POST /api/orchestrate/{version}/{flowId}
     base-url: ${ORCHESTRATOR_URL:http://localhost:8080}
     username: ${ORCHESTRATOR_USERNAME:admin}
     password: ${ORCHESTRATOR_PASSWORD:admin}
+  manager:
+    # CRUD de fluxos — service-portal-manager (porta 8082)
+    base-url: ${MANAGER_URL:http://localhost:8082}
+    username: ${MANAGER_USERNAME:admin}
+    password: ${MANAGER_PASSWORD:admin}
   auth:
     # URL pública — deve bater com o claim "iss" dos tokens emitidos pelo Authentik
     issuer-uri: ${AUTHENTIK_ISSUER_URI:http://localhost:9000/application/o/service-portal/}
@@ -103,16 +121,19 @@ bff:
 | Variável | Descrição | Default |
 |---|---|---|
 | `SERVER_PORT` | Porta do BFF | `8081` |
-| `ORCHESTRATOR_URL` | Base URL do `generic-orchestrator` | `http://localhost:8080` |
+| `ORCHESTRATOR_URL` | Base URL do `generic-orchestrator` (execução) | `http://localhost:8080` |
 | `ORCHESTRATOR_USERNAME` | Usuário do orquestrador (auth server-to-server) | `admin` |
 | `ORCHESTRATOR_PASSWORD` | Senha do orquestrador | `admin` |
+| `MANAGER_URL` | Base URL do `service-portal-manager` (CRUD de fluxos) | `http://localhost:8082` |
+| `MANAGER_USERNAME` | Usuário do Manager (auth server-to-server) | `admin` |
+| `MANAGER_PASSWORD` | Senha do Manager | `admin` |
 | `AUTHENTIK_JWKS_URI` | Endpoint JWKS do Authentik (interno) | `http://localhost:9000/application/o/service-portal/jwks/` |
 | `AUTHENTIK_ISSUER_URI` | Issuer público do Authentik (validação do claim `iss`) | `http://localhost:9000/application/o/service-portal/` |
 | `AUTHENTIK_CLIENT_ID` | Client ID público da SPA exposto pelo `/bff/auth/config` | `service-portal-spa` |
 
-### Cache de token do orquestrador
+### Cache de token (orquestrador e Manager)
 
-`OrchestratorAuthService` mantém o token em memória e renova quando faltam menos de 60s para expirar (assume TTL de 3600s). Cada chamada do `OrchestratorClient` injeta `Authorization: Bearer <token>` automaticamente — o frontend nunca vê essa credencial.
+`OrchestratorAuthService` e `ManagerAuthService` mantêm tokens separados em memória e renovam quando faltam menos de 60s para expirar (assume TTL de 3600s, mesmo padrão dos dois serviços). Cada cliente (`OrchestratorClient`, `ManagerClient`) injeta `Authorization: Bearer <token>` automaticamente — o frontend nunca vê essas credenciais.
 
 ---
 
@@ -148,12 +169,13 @@ Todos os endpoints (exceto `/bff/health`, `/bff/auth/config` e `/actuator/health
 | GET | `/bff/auth/config` | Configuração OAuth2/PKCE para o SPA (público — issuer, client_id, scopes) |
 | GET | `/bff/menu` | Itens da sidebar (Server Driven UI) |
 | GET | `/bff/ui/{featureId}` | Schema JSON da feature |
-| GET | `/bff/flows` | Lista fluxos ativos (proxy) |
-| GET | `/bff/flows/{flowId}` | Detalhe de um fluxo |
-| POST | `/bff/flows` | Cria fluxo (body: YAML como `text/plain`) |
-| PUT | `/bff/flows/{flowId}` | Atualiza fluxo (body: YAML) |
-| DELETE | `/bff/flows/{flowId}` | Desativa fluxo |
-| POST | `/bff/orchestrate/{version}/{flowId}` | Executa fluxo (body: JSON payload) |
+| GET | `/bff/flows?page=&size=&sort=` | Lista paginada (proxy ao Manager) — sem `yamlContent` |
+| GET | `/bff/flows/{flowId}/{versao}` | Metadados de um fluxo (proxy ao Manager) |
+| GET | `/bff/flows/{flowId}/{versao}/yaml` | YAML cru do fluxo (proxy ao Manager) |
+| POST | `/bff/flows` | Cria fluxo no Manager (body: YAML como `text/plain`) |
+| PUT | `/bff/flows/{flowId}/{versao}` | Atualiza fluxo no Manager (body: YAML) |
+| DELETE | `/bff/flows/{flowId}/{versao}` | Soft-delete no Manager (`ativo=false`) |
+| POST | `/bff/orchestrate/{version}/{flowId}` | Executa fluxo (proxy ao orquestrador, body: JSON payload) |
 | GET | `/actuator/health` | Health check (público) |
 
 ### Server Driven UI
@@ -260,9 +282,13 @@ curl -X POST http://localhost:8081/bff/orchestrate/v1/meu-fluxo \
 
 Logout: SPA chama `${issuer}end-session/?id_token_hint=…&post_logout_redirect_uri=…`. O BFF não mantém sessão — basta apagar o token do `sessionStorage`. Em respostas 401 do BFF, o frontend invalida a sessão local automaticamente.
 
-### Outbound — BFF → orquestrador
+### Outbound 1 — BFF → service-portal-manager (CRUD de fluxos)
 
-`OrchestratorAuthService` faz o login server-to-server e injeta o `Bearer` em cada request via `OrchestratorClient`. O usuário final do portal nunca vê esse token.
+`ManagerAuthService` cuida do login no Manager e mantém o JWT em cache. `ManagerClient` injeta `Authorization: Bearer <token>` em todas as chamadas — POST/GET/PUT/DELETE em `/manager/flows[...]` e o GET YAML cru em `/manager/workflows/{id}/{versao}/yaml`.
+
+### Outbound 2 — BFF → orquestrador (execução de fluxos)
+
+`OrchestratorAuthService` cuida do login no orquestrador. `OrchestratorClient` mantém apenas a chamada de execução (`POST /api/orchestrate/{version}/{flowId}`); todo CRUD migrou para o Manager.
 
 ---
 

@@ -1,6 +1,6 @@
 package com.serviceportal.bff.client;
 
-import com.serviceportal.bff.config.BffProperties;
+import com.serviceportal.bff.config.ManagerProperties;
 import com.serviceportal.bff.dto.LoginRequest;
 import com.serviceportal.bff.dto.LoginResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -10,19 +10,20 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Instant;
 
+/** Auth server-to-server contra o service-portal-manager. Gêmeo do {@link OrchestratorAuthService}. */
 @Slf4j
 @Service
-public class OrchestratorAuthService {
+public class ManagerAuthService {
 
-    private final WebClient orchestratorWebClient;
-    private final BffProperties props;
+    private final WebClient managerWebClient;
+    private final ManagerProperties props;
 
     private String token;
     private Instant tokenExpiry = Instant.EPOCH;
 
-    public OrchestratorAuthService(@Qualifier("orchestratorWebClient") WebClient orchestratorWebClient,
-                                    BffProperties props) {
-        this.orchestratorWebClient = orchestratorWebClient;
+    public ManagerAuthService(@Qualifier("managerWebClient") WebClient managerWebClient,
+                               ManagerProperties props) {
+        this.managerWebClient = managerWebClient;
         this.props = props;
     }
 
@@ -34,18 +35,18 @@ public class OrchestratorAuthService {
     }
 
     private void refreshToken() {
-        log.debug("Renovando token do orquestrador");
-        LoginResponse response = orchestratorWebClient.post()
+        log.debug("Renovando token do Manager");
+        LoginResponse response = managerWebClient.post()
                 .uri("/api/auth/login")
                 .bodyValue(new LoginRequest(props.getUsername(), props.getPassword()))
                 .retrieve()
                 .bodyToMono(LoginResponse.class)
                 .block();
         if (response == null || response.getToken() == null) {
-            throw new IllegalStateException("Orquestrador retornou login sem token");
+            throw new IllegalStateException("Manager retornou login sem token");
         }
         this.token = response.getToken();
         this.tokenExpiry = Instant.now().plusSeconds(3600);
-        log.debug("Token do orquestrador renovado com sucesso");
+        log.debug("Token do Manager renovado com sucesso");
     }
 }

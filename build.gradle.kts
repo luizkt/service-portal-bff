@@ -34,6 +34,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("io.projectreactor:reactor-test")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -46,19 +47,29 @@ tasks.named<BootJar>("bootJar") {
     archiveFileName.set("service-portal-bff.jar")
 }
 
-// JaCoCo: cobertura mínima 95% nas classes da feature de auth
-val authCoverageClasses = listOf(
+// JaCoCo: cobertura ≥ 95% nas classes da feature de auth e do refactor para o
+// service-portal-manager (CRUD via Manager + execução via Orchestrator).
+val coverageIncludes = listOf(
+    // Auth do BFF (Authentik + endpoint /bff/auth/config)
     "com/serviceportal/bff/config/SecurityConfig.class",
     "com/serviceportal/bff/config/AuthProperties.class",
     "com/serviceportal/bff/controller/AuthConfigController.class",
-    "com/serviceportal/bff/dto/AuthConfigDto.class"
+    "com/serviceportal/bff/dto/AuthConfigDto.class",
+    // Refactor: Manager client + proxy de fluxos
+    "com/serviceportal/bff/client/ManagerClient.class",
+    "com/serviceportal/bff/client/ManagerAuthService.class",
+    "com/serviceportal/bff/client/OrchestratorClient.class",
+    "com/serviceportal/bff/client/OrchestratorAuthService.class",
+    "com/serviceportal/bff/controller/FlowProxyController.class",
+    "com/serviceportal/bff/config/ManagerProperties.class",
+    "com/serviceportal/bff/config/BffProperties.class"
 )
 
 tasks.named<JacocoReport>("jacocoTestReport") {
     dependsOn(tasks.named("test"))
     classDirectories.setFrom(
         files(classDirectories.files.map {
-            fileTree(it) { include(authCoverageClasses) }
+            fileTree(it) { include(coverageIncludes) }
         })
     )
     reports {
@@ -71,7 +82,7 @@ tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
     dependsOn(tasks.named("test"))
     classDirectories.setFrom(
         files(classDirectories.files.map {
-            fileTree(it) { include(authCoverageClasses) }
+            fileTree(it) { include(coverageIncludes) }
         })
     )
     violationRules {

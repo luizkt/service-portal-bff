@@ -36,19 +36,13 @@ class ManagerClientTest {
     @AfterEach
     void tearDown() throws IOException { mockWebServer.shutdown(); }
 
-    private RecordedRequest enqueueAndTake(String body) throws InterruptedException {
-        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
-                .setHeader("Content-Type", "application/json").setBody(body));
-        return null;
-    }
-
-    @Test @DisplayName("listFlows envia paginação como query params")
-    void listFlowsPagina() throws InterruptedException {
+    @Test @DisplayName("listFlows sends pagination as query params")
+    void listFlowsPaginated() throws InterruptedException {
         mockWebServer.enqueue(new MockResponse().setResponseCode(200)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"content\":[],\"totalElements\":0,\"size\":20,\"number\":0}"));
 
-        var resp = client.listFlows(0, 20, "flowId,asc");
+        var resp = client.listFlows(0, 20, "flowId,asc", null);
         assertThat(resp).containsKey("content");
 
         RecordedRequest req = mockWebServer.takeRequest();
@@ -56,50 +50,61 @@ class ManagerClientTest {
         assertThat(req.getHeader("Authorization")).isEqualTo("Bearer test-token");
     }
 
-    @Test @DisplayName("listFlows omite sort quando vazio")
-    void listFlowsSemSort() throws InterruptedException {
+    @Test @DisplayName("listFlows omits sort when blank")
+    void listFlowsNoSort() throws InterruptedException {
         mockWebServer.enqueue(new MockResponse().setResponseCode(200)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"content\":[]}"));
 
-        client.listFlows(2, 50, null);
+        client.listFlows(2, 50, null, null);
         RecordedRequest req = mockWebServer.takeRequest();
         assertThat(req.getPath()).contains("page=2").contains("size=50").doesNotContain("sort=");
     }
 
-    @Test @DisplayName("getFlow monta path com flowId/versao e envia Authorization")
+    @Test @DisplayName("listFlows forwards status=active as query param")
+    void listFlowsStatus() throws InterruptedException {
+        // Body is an empty map ({}) so deserialization to Map<String,Object> succeeds.
+        // The intent of this test is only to validate the request shape.
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "application/json").setBody("{}"));
+        client.listFlows(0, 20, null, "active");
+        RecordedRequest req = mockWebServer.takeRequest();
+        assertThat(req.getPath()).contains("status=active");
+    }
+
+    @Test @DisplayName("getFlow builds /manager/flows/{id}/versions/{v} path")
     void getFlowOk() throws InterruptedException {
         mockWebServer.enqueue(new MockResponse().setResponseCode(200)
                 .setHeader("Content-Type", "application/json")
-                .setBody("{\"flowId\":\"x\",\"versao\":\"1\"}"));
+                .setBody("{\"flowId\":\"x\",\"version\":\"1\"}"));
 
         var resp = client.getFlow("x", "1.0.0");
         assertThat(resp).containsEntry("flowId", "x");
 
         RecordedRequest req = mockWebServer.takeRequest();
-        assertThat(req.getPath()).isEqualTo("/manager/flows/x/1.0.0");
+        assertThat(req.getPath()).isEqualTo("/manager/flows/x/versions/1.0.0");
     }
 
-    @Test @DisplayName("getFlowYaml retorna texto cru")
+    @Test @DisplayName("getFlowYaml returns raw text body")
     void getFlowYamlOk() throws InterruptedException {
         mockWebServer.enqueue(new MockResponse().setResponseCode(200)
                 .setHeader("Content-Type", "application/x-yaml")
-                .setBody("fluxo:\n  id: x\n"));
+                .setBody("flow:\n  id: x\n"));
 
         String yaml = client.getFlowYaml("x", "1.0.0");
-        assertThat(yaml).startsWith("fluxo:");
+        assertThat(yaml).startsWith("flow:");
 
         RecordedRequest req = mockWebServer.takeRequest();
-        assertThat(req.getPath()).isEqualTo("/manager/workflows/x/1.0.0/yaml");
+        assertThat(req.getPath()).isEqualTo("/manager/flows/x/versions/1.0.0/yaml");
     }
 
-    @Test @DisplayName("createFlow POSTa o YAML como text/plain")
+    @Test @DisplayName("createFlow POSTs YAML as text/plain")
     void createFlowOk() throws InterruptedException {
         mockWebServer.enqueue(new MockResponse().setResponseCode(201)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"flowId\":\"x\"}"));
 
-        client.createFlow("fluxo:\n  id: x\n");
+        client.createFlow("flow:\n  id: x\n");
         RecordedRequest req = mockWebServer.takeRequest();
         assertThat(req.getMethod()).isEqualTo("POST");
         assertThat(req.getPath()).isEqualTo("/manager/flows");
@@ -107,7 +112,7 @@ class ManagerClientTest {
         assertThat(req.getBody().readUtf8()).contains("id: x");
     }
 
-    @Test @DisplayName("updateFlow PUT no path com flowId/versao")
+    @Test @DisplayName("updateFlow PUT on /manager/flows/{id}/versions/{v}")
     void updateFlowOk() throws InterruptedException {
         mockWebServer.enqueue(new MockResponse().setResponseCode(200)
                 .setHeader("Content-Type", "application/json").setBody("{}"));
@@ -115,17 +120,17 @@ class ManagerClientTest {
         client.updateFlow("x", "1.0.0", "yaml-content");
         RecordedRequest req = mockWebServer.takeRequest();
         assertThat(req.getMethod()).isEqualTo("PUT");
-        assertThat(req.getPath()).isEqualTo("/manager/flows/x/1.0.0");
+        assertThat(req.getPath()).isEqualTo("/manager/flows/x/versions/1.0.0");
         assertThat(req.getBody().readUtf8()).isEqualTo("yaml-content");
     }
 
-    @Test @DisplayName("deleteFlow DELETE no path com flowId/versao")
+    @Test @DisplayName("deleteFlow DELETE on /manager/flows/{id}/versions/{v}")
     void deleteFlowOk() throws InterruptedException {
         mockWebServer.enqueue(new MockResponse().setResponseCode(204));
 
         client.deleteFlow("x", "1.0.0");
         RecordedRequest req = mockWebServer.takeRequest();
         assertThat(req.getMethod()).isEqualTo("DELETE");
-        assertThat(req.getPath()).isEqualTo("/manager/flows/x/1.0.0");
+        assertThat(req.getPath()).isEqualTo("/manager/flows/x/versions/1.0.0");
     }
 }

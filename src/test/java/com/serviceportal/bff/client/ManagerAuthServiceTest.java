@@ -46,7 +46,7 @@ class ManagerAuthServiceTest {
         assertThat(authService.getToken()).isEqualTo("jwt-1");
 
         RecordedRequest req = mockWebServer.takeRequest();
-        assertThat(req.getPath()).isEqualTo("/api/auth/login");
+        assertThat(req.getPath()).isEqualTo("/api/auth/tokens");
         assertThat(req.getBody().readUtf8()).contains("admin");
     }
 

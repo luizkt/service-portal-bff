@@ -36,7 +36,7 @@ public class OrchestratorAuthService {
     private void refreshToken() {
         log.debug("Renovando token do orquestrador");
         LoginResponse response = orchestratorWebClient.post()
-                .uri("/api/auth/login")
+                .uri("/api/auth/tokens")
                 .bodyValue(new LoginRequest(props.getUsername(), props.getPassword()))
                 .retrieve()
                 .bodyToMono(LoginResponse.class)

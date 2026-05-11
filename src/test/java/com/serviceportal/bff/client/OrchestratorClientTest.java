@@ -36,18 +36,18 @@ class OrchestratorClientTest {
     @AfterEach
     void tearDown() throws IOException { mockWebServer.shutdown(); }
 
-    @Test @DisplayName("orchestrate posta payload no path com version+flowId e envia Authorization")
-    void orchestrateOk() throws InterruptedException {
+    @Test @DisplayName("execute posts to /api/flows/{id}/versions/{v}/executions with Authorization")
+    void executeOk() throws InterruptedException {
         mockWebServer.enqueue(new MockResponse().setResponseCode(200)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"executionId\":\"abc\",\"status\":\"SUCCESS\"}"));
 
-        Map<String, Object> resp = client.orchestrate("v2", "criar-pedido", Map.of("clienteId", "ABC123"));
+        Map<String, Object> resp = client.execute("create-order", "v2", Map.of("clientId", "ABC123"));
         assertThat(resp).containsEntry("executionId", "abc");
 
         RecordedRequest req = mockWebServer.takeRequest();
         assertThat(req.getMethod()).isEqualTo("POST");
-        assertThat(req.getPath()).isEqualTo("/api/orchestrate/v2/criar-pedido");
+        assertThat(req.getPath()).isEqualTo("/api/flows/create-order/versions/v2/executions");
         assertThat(req.getHeader("Authorization")).isEqualTo("Bearer orch-token");
         assertThat(req.getBody().readUtf8()).contains("ABC123");
     }

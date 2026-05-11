@@ -1,6 +1,5 @@
 package com.serviceportal.bff.client;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -15,12 +14,12 @@ import java.util.Map;
  * (POST/GET/PUT/DELETE) acontece nele após a refatoração do BFF.
  *
  * Endpoints REST do Manager (vide service-portal-manager/README.md):
- *   - POST   /manager/flows                            (YAML body)
- *   - GET    /manager/flows?page=&size=&sort=          (lista paginada, sem yamlContent)
- *   - GET    /manager/flows/{flowId}/{versao}          (metadados)
- *   - PUT    /manager/flows/{flowId}/{versao}          (YAML body)
- *   - DELETE /manager/flows/{flowId}/{versao}          (soft-delete)
- *   - GET    /manager/workflows/{flowId}/{versao}/yaml (YAML cru)
+ *   - POST   /manager/flows                                       (YAML body)
+ *   - GET    /manager/flows?page=&size=&sort=&status=             (lista paginada / ativos)
+ *   - GET    /manager/flows/{flowId}/versions/{version}           (metadados)
+ *   - PUT    /manager/flows/{flowId}/versions/{version}           (YAML body)
+ *   - DELETE /manager/flows/{flowId}/versions/{version}           (soft-delete)
+ *   - GET    /manager/flows/{flowId}/versions/{version}/yaml      (YAML cru)
  */
 @Service
 public class ManagerClient {
@@ -38,14 +37,19 @@ public class ManagerClient {
         return "Bearer " + authService.getToken();
     }
 
-    /** Lista paginada de fluxos. Retorna o objeto Page raw (Spring Data: content[], totalElements, etc.). */
-    public Map<String, Object> listFlows(int page, int size, String sort) {
-        WebClient.RequestHeadersUriSpec<?> spec = managerWebClient.get();
-        return spec.uri(uri -> {
+    /**
+     * Lista de fluxos. Quando {@code status=="active"}, o Manager retorna lista
+     * compacta (sem `yamlContent`) e sem paginação — caso contrário, devolve
+     * uma `Page` paginada.
+     */
+    public Map<String, Object> listFlows(int page, int size, String sort, String status) {
+        return managerWebClient.get()
+                .uri(uri -> {
                     var b = uri.path("/manager/flows")
                             .queryParam("page", page)
                             .queryParam("size", size);
                     if (sort != null && !sort.isBlank()) b.queryParam("sort", sort);
+                    if (status != null && !status.isBlank()) b.queryParam("status", status);
                     return b.build();
                 })
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
@@ -54,18 +58,18 @@ public class ManagerClient {
                 .block();
     }
 
-    public Map<String, Object> getFlow(String flowId, String versao) {
+    public Map<String, Object> getFlow(String flowId, String version) {
         return managerWebClient.get()
-                .uri("/manager/flows/{flowId}/{versao}", flowId, versao)
+                .uri("/manager/flows/{flowId}/versions/{version}", flowId, version)
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                 .block();
     }
 
-    public String getFlowYaml(String flowId, String versao) {
+    public String getFlowYaml(String flowId, String version) {
         return managerWebClient.get()
-                .uri("/manager/workflows/{flowId}/{versao}/yaml", flowId, versao)
+                .uri("/manager/flows/{flowId}/versions/{version}/yaml", flowId, version)
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(String.class)
@@ -83,9 +87,9 @@ public class ManagerClient {
                 .block();
     }
 
-    public Map<String, Object> updateFlow(String flowId, String versao, String yaml) {
+    public Map<String, Object> updateFlow(String flowId, String version, String yaml) {
         return managerWebClient.put()
-                .uri("/manager/flows/{flowId}/{versao}", flowId, versao)
+                .uri("/manager/flows/{flowId}/versions/{version}", flowId, version)
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .contentType(MediaType.TEXT_PLAIN)
                 .bodyValue(yaml)
@@ -94,9 +98,9 @@ public class ManagerClient {
                 .block();
     }
 
-    public void deleteFlow(String flowId, String versao) {
+    public void deleteFlow(String flowId, String version) {
         managerWebClient.delete()
-                .uri("/manager/flows/{flowId}/{versao}", flowId, versao)
+                .uri("/manager/flows/{flowId}/versions/{version}", flowId, version)
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .toBodilessEntity()

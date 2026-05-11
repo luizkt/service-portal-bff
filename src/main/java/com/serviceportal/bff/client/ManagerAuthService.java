@@ -37,7 +37,7 @@ public class ManagerAuthService {
     private void refreshToken() {
         log.debug("Renovando token do Manager");
         LoginResponse response = managerWebClient.post()
-                .uri("/api/auth/login")
+                .uri("/api/auth/tokens")
                 .bodyValue(new LoginRequest(props.getUsername(), props.getPassword()))
                 .retrieve()
                 .bodyToMono(LoginResponse.class)

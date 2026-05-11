@@ -29,9 +29,9 @@ public class OrchestratorClient {
         return "Bearer " + authService.getToken();
     }
 
-    public Map<String, Object> orchestrate(String version, String flowId, Map<String, Object> payload) {
+    public Map<String, Object> execute(String flowId, String version, Map<String, Object> payload) {
         return orchestratorWebClient.post()
-                .uri("/api/orchestrate/{version}/{flowId}", version, flowId)
+                .uri("/api/flows/{flowId}/versions/{version}/executions", flowId, version)
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .bodyValue(payload)
                 .retrieve()

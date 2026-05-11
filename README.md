@@ -8,14 +8,14 @@ Camada intermediária entre o frontend React e os serviços de backend. Aplica o
 
 Responsabilidades:
 
-- **Menu e UI Schema**: expõe `/bff/menu` e `/bff/ui/{featureId}` para o frontend renderizar a navegação e cada tela
+- **Menu e UI Schema**: expõe `/bff/menu` e `/bff/features/{featureId}/ui-schema` para o frontend renderizar a navegação e cada tela
 - **Proxy de fluxos**:
   - **CRUD** → repassa para o `service-portal-manager` (porta 8082) — único dono da collection `workflows`
-  - **Execução** → repassa para o `generic-orchestrator` (porta 8080) — `POST /bff/orchestrate/{version}/{flowId}`
+  - **Execução** → repassa para o `generic-orchestrator` (porta 8080) — `POST /bff/flows/{flowId}/versions/{version}/executions`
 - **Autenticação tripla**:
   - Inbound (frontend → BFF): valida tokens JWT do Authentik via OAuth2 Resource Server
-  - Outbound 1 (BFF → Manager): server-to-server `POST /api/auth/login`, token em cache renovado automaticamente
-  - Outbound 2 (BFF → Orquestrador): server-to-server `POST /api/auth/login`, token em cache renovado automaticamente
+  - Outbound 1 (BFF → Manager): server-to-server `POST /api/auth/tokens`, token em cache renovado automaticamente
+  - Outbound 2 (BFF → Orquestrador): server-to-server `POST /api/auth/tokens`, token em cache renovado automaticamente
 
 ---
 
@@ -49,7 +49,7 @@ src/main/java/com/serviceportal/bff/
 │   ├── ManagerAuthService.java     # Login server-to-server (Manager)
 │   └── ManagerClient.java          # CRUD: list/get/create/update/delete + getYaml
 ├── controller/
-│   ├── BffMenuController.java      # /bff/health, /bff/menu, /bff/ui/{id}
+│   ├── BffMenuController.java      # /bff/health, /bff/menu, /bff/features/{id}/ui-schema
 │   ├── AuthConfigController.java   # /bff/auth/config (público — OAuth2/PKCE)
 │   └── FlowProxyController.java    # CRUD → Manager; orchestrate → Orchestrator
 └── dto/
@@ -95,7 +95,7 @@ server:
 
 bff:
   orchestrator:
-    # Apenas execução de fluxos — POST /api/orchestrate/{version}/{flowId}
+    # Apenas execução de fluxos — POST /api/flows/{flowId}/versions/{version}/executions
     base-url: ${ORCHESTRATOR_URL:http://localhost:8080}
     username: ${ORCHESTRATOR_USERNAME:admin}
     password: ${ORCHESTRATOR_PASSWORD:admin}
@@ -168,14 +168,14 @@ Todos os endpoints (exceto `/bff/health`, `/bff/auth/config` e `/actuator/health
 | GET | `/bff/health` | Healthcheck (público) |
 | GET | `/bff/auth/config` | Configuração OAuth2/PKCE para o SPA (público — issuer, client_id, scopes) |
 | GET | `/bff/menu` | Itens da sidebar (Server Driven UI) |
-| GET | `/bff/ui/{featureId}` | Schema JSON da feature |
+| GET | `/bff/features/{featureId}/ui-schema` | Schema JSON da feature |
 | GET | `/bff/flows?page=&size=&sort=` | Lista paginada (proxy ao Manager) — sem `yamlContent` |
-| GET | `/bff/flows/{flowId}/{versao}` | Metadados de um fluxo (proxy ao Manager) |
-| GET | `/bff/flows/{flowId}/{versao}/yaml` | YAML cru do fluxo (proxy ao Manager) |
+| GET | `/bff/flows/{flowId}/versions/{version}` | Metadados de um fluxo (proxy ao Manager) |
+| GET | `/bff/flows/{flowId}/versions/{version}/yaml` | YAML cru do fluxo (proxy ao Manager) |
 | POST | `/bff/flows` | Cria fluxo no Manager (body: YAML como `text/plain`) |
-| PUT | `/bff/flows/{flowId}/{versao}` | Atualiza fluxo no Manager (body: YAML) |
-| DELETE | `/bff/flows/{flowId}/{versao}` | Soft-delete no Manager (`ativo=false`) |
-| POST | `/bff/orchestrate/{version}/{flowId}` | Executa fluxo (proxy ao orquestrador, body: JSON payload) |
+| PUT | `/bff/flows/{flowId}/versions/{version}` | Atualiza fluxo no Manager (body: YAML) |
+| DELETE | `/bff/flows/{flowId}/versions/{version}` | Soft-delete no Manager (`active=false`) |
+| POST | `/bff/flows/{flowId}/versions/{version}/executions` | Executa fluxo (proxy ao orquestrador, body: JSON payload) |
 | GET | `/actuator/health` | Health check (público) |
 
 ### Server Driven UI
@@ -188,7 +188,7 @@ Todos os endpoints (exceto `/bff/health`, `/bff/auth/config` e `/actuator/health
     "id": "flow-manager",
     "label": "Gerenciador de Fluxos",
     "icon": "workflow",
-    "uiSchemaUrl": "/bff/ui/flow-manager"
+    "uiSchemaUrl": "/bff/features/flow-manager/ui-schema"
   }
 ]
 ```
@@ -198,9 +198,9 @@ Todos os endpoints (exceto `/bff/health`, `/bff/auth/config` e `/actuator/health
 | `id` | Identificador único da feature |
 | `label` | Texto exibido no menu |
 | `icon` | Nome do ícone (mapeado pelo frontend) |
-| `uiSchemaUrl` | Endpoint `GET /bff/ui/{featureId}` que devolve o schema da tela |
+| `uiSchemaUrl` | Endpoint `GET /bff/features/{featureId}/ui-schema` que devolve o schema da tela |
 
-#### `GET /bff/ui/{featureId}`
+#### `GET /bff/features/{featureId}/ui-schema`
 
 ```json
 {
@@ -284,11 +284,11 @@ Logout: SPA chama `${issuer}end-session/?id_token_hint=…&post_logout_redirect_
 
 ### Outbound 1 — BFF → service-portal-manager (CRUD de fluxos)
 
-`ManagerAuthService` cuida do login no Manager e mantém o JWT em cache. `ManagerClient` injeta `Authorization: Bearer <token>` em todas as chamadas — POST/GET/PUT/DELETE em `/manager/flows[...]` e o GET YAML cru em `/manager/workflows/{id}/{versao}/yaml`.
+`ManagerAuthService` cuida do login no Manager e mantém o JWT em cache. `ManagerClient` injeta `Authorization: Bearer <token>` em todas as chamadas — POST/GET/PUT/DELETE em `/manager/flows[...]` e o GET YAML cru em `/manager/flows/{flowId}/versions/{version}/yaml`.
 
 ### Outbound 2 — BFF → orquestrador (execução de fluxos)
 
-`OrchestratorAuthService` cuida do login no orquestrador. `OrchestratorClient` mantém apenas a chamada de execução (`POST /api/orchestrate/{version}/{flowId}`); todo CRUD migrou para o Manager.
+`OrchestratorAuthService` cuida do login no orquestrador. `OrchestratorClient` mantém apenas a chamada de execução (`POST /api/flows/{flowId}/versions/{version}/executions`); todo CRUD migrou para o Manager.
 
 ---
 

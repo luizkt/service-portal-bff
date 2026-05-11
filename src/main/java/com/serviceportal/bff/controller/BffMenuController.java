@@ -24,12 +24,16 @@ public class BffMenuController {
                         .id("flow-manager")
                         .label("Gerenciador de Fluxos")
                         .icon("workflow")
-                        .uiSchemaUrl("/bff/ui/flow-manager")
+                        .uiSchemaUrl("/bff/features/flow-manager/ui-schema")
                         .build()
         ));
     }
 
-    @GetMapping("/ui/{featureId}")
+    /**
+     * UI schema é sub-recurso do feature — REST-shape.
+     * Substitui o antigo {@code GET /bff/ui/{featureId}}.
+     */
+    @GetMapping("/features/{featureId}/ui-schema")
     public ResponseEntity<UiSchemaDto> uiSchema(@PathVariable String featureId) {
         return switch (featureId) {
             case "flow-manager" -> ResponseEntity.ok(

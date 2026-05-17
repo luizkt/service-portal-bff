@@ -10,6 +10,8 @@ RUN --mount=type=cache,target=/root/.gradle \
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
+RUN apk add --no-cache curl
+
 COPY --from=build /app/build/libs/service-portal-bff.jar app.jar
 
 # ── Orquestrador (apenas execução de fluxos) ──────────────────────────────────

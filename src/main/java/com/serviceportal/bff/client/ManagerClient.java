@@ -42,7 +42,7 @@ public class ManagerClient {
      * compacta (sem `yamlContent`) e sem paginação — caso contrário, devolve
      * uma `Page` paginada.
      */
-    public Map<String, Object> listFlows(int page, int size, String sort, String status) {
+    public Object listFlows(int page, int size, String sort, String status) {
         return managerWebClient.get()
                 .uri(uri -> {
                     var b = uri.path("/manager/flows")
@@ -54,7 +54,7 @@ public class ManagerClient {
                 })
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .bodyToMono(Object.class)
                 .block();
     }
 

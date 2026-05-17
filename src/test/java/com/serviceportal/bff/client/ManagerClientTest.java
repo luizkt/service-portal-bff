@@ -43,7 +43,7 @@ class ManagerClientTest {
                 .setBody("{\"content\":[],\"totalElements\":0,\"size\":20,\"number\":0}"));
 
         var resp = client.listFlows(0, 20, "flowId,asc", null);
-        assertThat(resp).containsKey("content");
+        assertThat(resp).isNotNull();
 
         RecordedRequest req = mockWebServer.takeRequest();
         assertThat(req.getPath()).contains("/manager/flows").contains("page=0").contains("size=20").contains("sort=flowId,asc");

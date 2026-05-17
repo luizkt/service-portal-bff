@@ -34,13 +34,11 @@ public class FlowProxyController {
     private final OrchestratorClient orchestratorClient;
 
     @GetMapping("/flows")
-    public ResponseEntity<Map<String, Object>> listFlows(
+    public ResponseEntity<Object> listFlows(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sort,
             @RequestParam(required = false) String status) {
-        // Repasse simples — Manager interpreta `status=active`. Sort/page/size
-        // continuam funcionando para listagem geral.
         return ResponseEntity.ok(managerClient.listFlows(page, size, sort, status));
     }
 
@@ -70,7 +68,13 @@ public class FlowProxyController {
     @PostMapping(value = "/flows",
             consumes = {MediaType.TEXT_PLAIN_VALUE, "application/x-yaml", "text/yaml", MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<Map<String, Object>> createFlow(@RequestBody String yaml) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(managerClient.createFlow(yaml));
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(managerClient.createFlow(yaml));
+        } catch (WebClientResponseException.Conflict e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        } catch (WebClientResponseException.BadRequest e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PutMapping(value = "/flows/{flowId}/versions/{version}",

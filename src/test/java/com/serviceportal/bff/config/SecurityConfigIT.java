@@ -15,6 +15,15 @@ import com.serviceportal.bff.client.ManagerClient;
 import com.serviceportal.bff.client.OrchestratorAuthService;
 import com.serviceportal.bff.client.OrchestratorClient;
 
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -24,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://localhost:9999/jwks/",
         "bff.auth.issuer-uri=http://localhost:9999/issuer/",
+        "bff.auth.allowed-issuers=http://localhost:9999/issuer/,http://localhost:9999/m2m-issuer/",
         "bff.auth.client-id=test-spa",
         "bff.orchestrator.base-url=http://localhost:9998",
         "bff.orchestrator.username=u",
@@ -36,12 +46,13 @@ class SecurityConfigIT {
 
     @Autowired private MockMvc mvc;
 
-    // Beans externos que dependem de infra real — substituídos por mocks
     @MockBean private JwtDecoder jwtDecoder;
     @MockBean private OrchestratorAuthService orchestratorAuthService;
     @MockBean private OrchestratorClient orchestratorClient;
     @MockBean private ManagerAuthService managerAuthService;
     @MockBean private ManagerClient managerClient;
+
+    // ─── endpoints públicos ────────────────────────────────────────────────
 
     @Test @DisplayName("/bff/auth/config é público e retorna 200 sem token")
     void authConfigPublico() throws Exception {
@@ -58,6 +69,8 @@ class SecurityConfigIT {
                 .andExpect(status().isOk());
     }
 
+    // ─── autenticação requerida ────────────────────────────────────────────
+
     @Test @DisplayName("/bff/menu sem token retorna 401")
     void menuExigeToken() throws Exception {
         mvc.perform(get("/bff/menu"))
@@ -68,5 +81,41 @@ class SecurityConfigIT {
     void flowsExigeToken() throws Exception {
         mvc.perform(get("/bff/flows"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // ─── autorização por grupo ────────────────────────────────────────────
+
+    @Test @DisplayName("GET /bff/flows com grupo WORKFLOWS retorna 200")
+    void flowsGrupoWorkflows() throws Exception {
+        when(managerClient.listFlows(anyInt(), anyInt(), any(), any()))
+                .thenReturn(Map.of("content", List.of(), "totalElements", 0));
+
+        mvc.perform(get("/bff/flows")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("WORKFLOWS"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test @DisplayName("GET /bff/flows com grupo ADMIN retorna 200")
+    void flowsGrupoAdmin() throws Exception {
+        when(managerClient.listFlows(anyInt(), anyInt(), any(), any()))
+                .thenReturn(Map.of("content", List.of(), "totalElements", 0));
+
+        mvc.perform(get("/bff/flows")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ADMIN"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test @DisplayName("GET /bff/flows com grupo RULES retorna 403")
+    void flowsGrupoRulesBloqueado() throws Exception {
+        mvc.perform(get("/bff/flows")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("RULES"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test @DisplayName("GET /bff/flows autenticado sem grupos retorna 403")
+    void flowsSemGruposBloqueado() throws Exception {
+        mvc.perform(get("/bff/flows")
+                        .with(jwt()))
+                .andExpect(status().isForbidden());
     }
 }

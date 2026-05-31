@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -15,6 +16,8 @@ import java.util.Map;
  * Proxy do BFF:
  *   - CRUD de fluxos → service-portal-manager (`ManagerClient`)
  *   - Execução do fluxo → generic-orchestrator (`OrchestratorClient`)
+ *
+ * Acesso restrito ao módulo de workflows: requer grupo ADMIN ou WORKFLOWS no JWT.
  *
  * Endpoints REST-shape:
  *   - GET    /bff/flows?page=&size=&sort=&status=
@@ -28,6 +31,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/bff")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyAuthority('ADMIN', 'WORKFLOWS')")
 public class FlowProxyController {
 
     private final ManagerClient managerClient;

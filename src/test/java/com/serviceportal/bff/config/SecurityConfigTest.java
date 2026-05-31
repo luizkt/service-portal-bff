@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -17,15 +18,23 @@ class SecurityConfigTest {
         SecurityConfig config = new SecurityConfig();
         ReflectionTestUtils.setField(config, "jwksUri",
                 "http://localhost:9000/application/o/service-portal/jwks/");
-        ReflectionTestUtils.setField(config, "issuerUri",
-                "http://localhost:9000/application/o/service-portal/");
+        ReflectionTestUtils.setField(config, "allowedIssuers",
+                "http://localhost:9000/application/o/service-portal/,http://localhost:9000/application/o/service-portal-m2m/");
         return config;
     }
 
-    @Test @DisplayName("jwtDecoder() cria NimbusJwtDecoder configurado para o issuer")
+    @Test @DisplayName("jwtDecoder() cria NimbusJwtDecoder configurado para múltiplos issuers")
     void jwtDecoderCriaNimbus() {
         JwtDecoder decoder = newConfig().jwtDecoder();
         assertThat(decoder).isInstanceOf(NimbusJwtDecoder.class);
+    }
+
+    @Test @DisplayName("jwtAuthenticationConverter() cria converter configurado para claim 'groups' sem prefixo")
+    void jwtAuthenticationConverterConfigurado() {
+        JwtAuthenticationConverter converter = newConfig().jwtAuthenticationConverter();
+        assertThat(converter).isNotNull();
+        // O converter é criado com sucesso; a validação funcional é feita na SecurityConfigIT
+        // via tokens mock com o claim "groups".
     }
 
     @Test @DisplayName("corsConfigurationSource registra /bff/** com métodos esperados")

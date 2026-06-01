@@ -18,4 +18,7 @@ public class AuthProperties {
 
     /** Scopes solicitados no /authorize. */
     private List<String> scopes = new ArrayList<>(List.of("openid", "profile", "email"));
+
+    /** URL base interna do Authentik — usada pelo BFF para chamar o Flow Executor server-side. */
+    private String authentikBaseUrl = "http://localhost:9000";
 }

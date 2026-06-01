@@ -38,6 +38,8 @@ bff:
       - profile
       - email
       - groups
+    # URL interna do Authentik para o BFF autenticar usuários via Flow Executor
+    authentik-base-url: ${AUTHENTIK_BASE_URL:http://localhost:9000}
 
 management:
   endpoints:

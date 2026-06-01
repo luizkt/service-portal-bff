@@ -3,8 +3,11 @@ package com.serviceportal.bff.controller;
 import com.serviceportal.bff.dto.MenuItemDto;
 import com.serviceportal.bff.dto.UiSchemaDto;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -12,21 +15,35 @@ import java.util.Map;
 @RequestMapping("/bff")
 public class BffMenuController {
 
+    /** Catálogo completo de itens — filtrado por grupo antes de enviar ao frontend. */
+    private static final List<MenuItemDto> ALL_ITEMS = List.of(
+            MenuItemDto.builder()
+                    .id("flow-manager")
+                    .label("Gerenciador de Fluxos")
+                    .icon("workflow")
+                    .uiSchemaUrl("/bff/features/flow-manager/ui-schema")
+                    .requiredGroup("ADMIN")
+                    .requiredGroup("WORKFLOWS")
+                    .build()
+    );
+
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of("status", "UP"));
     }
 
     @GetMapping("/menu")
-    public ResponseEntity<List<MenuItemDto>> menu() {
-        return ResponseEntity.ok(List.of(
-                MenuItemDto.builder()
-                        .id("flow-manager")
-                        .label("Gerenciador de Fluxos")
-                        .icon("workflow")
-                        .uiSchemaUrl("/bff/features/flow-manager/ui-schema")
-                        .build()
-        ));
+    public ResponseEntity<List<MenuItemDto>> menu(@AuthenticationPrincipal Jwt jwt) {
+        List<String> userGroups = jwt != null ? jwt.getClaimAsStringList("groups") : List.of();
+        if (userGroups == null) userGroups = List.of();
+
+        final List<String> groups = userGroups;
+        List<MenuItemDto> visible = ALL_ITEMS.stream()
+                .filter(item -> item.getRequiredGroups().isEmpty()
+                        || containsAny(item.getRequiredGroups(), groups))
+                .toList();
+
+        return ResponseEntity.ok(visible);
     }
 
     /**
@@ -45,5 +62,9 @@ public class BffMenuController {
             );
             default -> ResponseEntity.notFound().build();
         };
+    }
+
+    private static boolean containsAny(Collection<String> required, Collection<String> actual) {
+        return required.stream().anyMatch(actual::contains);
     }
 }

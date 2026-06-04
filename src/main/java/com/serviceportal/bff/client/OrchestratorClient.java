@@ -30,8 +30,16 @@ public class OrchestratorClient {
     }
 
     public Map<String, Object> execute(String flowId, String version, Map<String, Object> payload) {
+        return post("/api/v1/flows/{flowId}/versions/{version}/executions", flowId, version, payload);
+    }
+
+    public Map<String, Object> executeV2(String flowId, String version, Map<String, Object> payload) {
+        return post("/api/v2/flows/{flowId}/versions/{version}/executions", flowId, version, payload);
+    }
+
+    private Map<String, Object> post(String uriTemplate, String flowId, String version, Map<String, Object> payload) {
         return orchestratorWebClient.post()
-                .uri("/api/flows/{flowId}/versions/{version}/executions", flowId, version)
+                .uri(uriTemplate, flowId, version)
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .bodyValue(payload)
                 .retrieve()

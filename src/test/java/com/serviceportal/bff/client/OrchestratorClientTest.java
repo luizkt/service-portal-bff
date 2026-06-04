@@ -36,19 +36,35 @@ class OrchestratorClientTest {
     @AfterEach
     void tearDown() throws IOException { mockWebServer.shutdown(); }
 
-    @Test @DisplayName("execute posts to /api/flows/{id}/versions/{v}/executions with Authorization")
+    @Test @DisplayName("execute (v1) posts to /api/v1/flows/{id}/versions/{v}/executions with Authorization")
     void executeOk() throws InterruptedException {
         mockWebServer.enqueue(new MockResponse().setResponseCode(200)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"executionId\":\"abc\",\"status\":\"SUCCESS\"}"));
 
-        Map<String, Object> resp = client.execute("create-order", "v2", Map.of("clientId", "ABC123"));
+        Map<String, Object> resp = client.execute("create-order", "1.0.0", Map.of("clientId", "ABC123"));
         assertThat(resp).containsEntry("executionId", "abc");
 
         RecordedRequest req = mockWebServer.takeRequest();
         assertThat(req.getMethod()).isEqualTo("POST");
-        assertThat(req.getPath()).isEqualTo("/api/flows/create-order/versions/v2/executions");
+        assertThat(req.getPath()).isEqualTo("/api/v1/flows/create-order/versions/1.0.0/executions");
         assertThat(req.getHeader("Authorization")).isEqualTo("Bearer orch-token");
         assertThat(req.getBody().readUtf8()).contains("ABC123");
+    }
+
+    @Test @DisplayName("executeV2 posts to /api/v2/flows/{id}/versions/{v}/executions with Authorization")
+    void executeV2Ok() throws InterruptedException {
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{\"executionId\":\"xyz\",\"status\":\"SUCCESS\"}"));
+
+        Map<String, Object> resp = client.executeV2("create-order", "1.0.0", Map.of("clientId", "DEF456"));
+        assertThat(resp).containsEntry("executionId", "xyz");
+
+        RecordedRequest req = mockWebServer.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("POST");
+        assertThat(req.getPath()).isEqualTo("/api/v2/flows/create-order/versions/1.0.0/executions");
+        assertThat(req.getHeader("Authorization")).isEqualTo("Bearer orch-token");
+        assertThat(req.getBody().readUtf8()).contains("DEF456");
     }
 }

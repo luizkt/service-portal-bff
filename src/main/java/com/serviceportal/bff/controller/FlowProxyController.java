@@ -26,7 +26,8 @@ import java.util.Map;
  *   - POST   /bff/flows
  *   - PUT    /bff/flows/{flowId}/versions/{version}
  *   - DELETE /bff/flows/{flowId}/versions/{version}
- *   - POST   /bff/flows/{flowId}/versions/{version}/executions  (substitui /orchestrate/{v}/{id})
+ *   - POST   /bff/flows/{flowId}/versions/{version}/executions    (sequencial — orquestrador v1)
+ *   - POST   /bff/flows/{flowId}/versions/{version}/executions/v2 (paralelo   — orquestrador v2)
  */
 @RestController
 @RequestMapping("/bff")
@@ -104,14 +105,19 @@ public class FlowProxyController {
         }
     }
 
-    /**
-     * Cria uma execução do fluxo {@code flowId} versão {@code version} —
-     * substitui o antigo verb-based {@code POST /bff/orchestrate/{v}/{id}}.
-     */
+    /** Execução sequencial — delega para orquestrador v1. */
     @PostMapping("/flows/{flowId}/versions/{version}/executions")
     public ResponseEntity<Map<String, Object>> executeFlow(@PathVariable String flowId,
                                                            @PathVariable String version,
                                                            @RequestBody Map<String, Object> payload) {
         return ResponseEntity.ok(orchestratorClient.execute(flowId, version, payload));
+    }
+
+    /** Execução paralela — delega para orquestrador v2 (Java Virtual Threads). */
+    @PostMapping("/flows/{flowId}/versions/{version}/executions/v2")
+    public ResponseEntity<Map<String, Object>> executeFlowV2(@PathVariable String flowId,
+                                                             @PathVariable String version,
+                                                             @RequestBody Map<String, Object> payload) {
+        return ResponseEntity.ok(orchestratorClient.executeV2(flowId, version, payload));
     }
 }

@@ -111,13 +111,22 @@ class FlowProxyControllerTest {
         assertThat(controller.deleteFlow("x", "1.0").getStatusCode().value()).isEqualTo(404);
     }
 
-    @Test @DisplayName("POST .../executions delegates to OrchestratorClient.execute")
+    @Test @DisplayName("POST .../executions delegates to OrchestratorClient.execute (v1)")
     void executeFlow() {
-        when(orchestratorClient.execute(eq("x"), eq("v1"), any()))
+        when(orchestratorClient.execute(eq("x"), eq("1.0.0"), any()))
                 .thenReturn(Map.of("status", "SUCCESS"));
-        var resp = controller.executeFlow("x", "v1", Map.of("k", "v"));
+        var resp = controller.executeFlow("x", "1.0.0", Map.of("k", "v"));
         assertThat(resp.getStatusCode().value()).isEqualTo(200);
-        verify(orchestratorClient).execute("x", "v1", Map.of("k", "v"));
+        verify(orchestratorClient).execute("x", "1.0.0", Map.of("k", "v"));
+    }
+
+    @Test @DisplayName("POST .../executions/v2 delegates to OrchestratorClient.executeV2")
+    void executeFlowV2() {
+        when(orchestratorClient.executeV2(eq("x"), eq("1.0.0"), any()))
+                .thenReturn(Map.of("status", "SUCCESS"));
+        var resp = controller.executeFlowV2("x", "1.0.0", Map.of("k", "v"));
+        assertThat(resp.getStatusCode().value()).isEqualTo(200);
+        verify(orchestratorClient).executeV2("x", "1.0.0", Map.of("k", "v"));
     }
 
     private WebClientResponseException.NotFound notFoundException() {

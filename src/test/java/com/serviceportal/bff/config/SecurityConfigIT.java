@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -116,6 +117,47 @@ class SecurityConfigIT {
     void flowsSemGruposBloqueado() throws Exception {
         mvc.perform(get("/bff/flows")
                         .with(jwt()))
+                .andExpect(status().isForbidden());
+    }
+
+    // ─── S4: autorização dos recursos modulares ─────────────────────────────
+
+    @Test @DisplayName("GET /bff/integrations: WORKFLOWS 200, RULES 403")
+    void integrationsRead() throws Exception {
+        when(managerClient.listIntegrations(anyInt(), anyInt(), any(), any())).thenReturn(Map.of("content", List.of()));
+        mvc.perform(get("/bff/integrations").with(jwt().authorities(new SimpleGrantedAuthority("WORKFLOWS"))))
+                .andExpect(status().isOk());
+        mvc.perform(get("/bff/integrations").with(jwt().authorities(new SimpleGrantedAuthority("RULES"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test @DisplayName("POST /bff/integrations: WORKFLOWS 403 (escrita só ADMIN)")
+    void integrationsWriteOnlyAdmin() throws Exception {
+        mvc.perform(post("/bff/integrations").contentType("application/json").content("{}")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("WORKFLOWS"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test @DisplayName("GET /bff/contracts: RULES 200; POST: RULES 403, WORKFLOWS 201")
+    void contractsAccess() throws Exception {
+        when(managerClient.listContracts(anyInt(), anyInt(), any(), any())).thenReturn(Map.of("content", List.of()));
+        when(managerClient.createContract(any())).thenReturn(Map.of("contractId", "co", "version", 1));
+        mvc.perform(get("/bff/contracts").with(jwt().authorities(new SimpleGrantedAuthority("RULES"))))
+                .andExpect(status().isOk());
+        mvc.perform(post("/bff/contracts").contentType("application/json").content("{}")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("RULES"))))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/bff/contracts").contentType("application/json").content("{}")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("WORKFLOWS"))))
+                .andExpect(status().isCreated());
+    }
+
+    @Test @DisplayName("GET /bff/validations: RULES 200, WORKFLOWS 403")
+    void validationsRead() throws Exception {
+        when(managerClient.listValidations(anyInt(), anyInt(), any(), any())).thenReturn(Map.of("content", List.of()));
+        mvc.perform(get("/bff/validations").with(jwt().authorities(new SimpleGrantedAuthority("RULES"))))
+                .andExpect(status().isOk());
+        mvc.perform(get("/bff/validations").with(jwt().authorities(new SimpleGrantedAuthority("WORKFLOWS"))))
                 .andExpect(status().isForbidden());
     }
 }

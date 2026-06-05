@@ -26,30 +26,34 @@ class BffMenuControllerTest {
                 .build();
     }
 
-    @Test @DisplayName("ADMIN recebe flow-manager")
-    void adminRecebeFlowManager() {
+    private static List<String> ids(ResponseEntity<List<MenuItemDto>> resp) {
+        return resp.getBody().stream().map(MenuItemDto::getId).toList();
+    }
+
+    @Test @DisplayName("ADMIN recebe os 4 itens")
+    void adminRecebeTodos() {
         ResponseEntity<List<MenuItemDto>> resp = controller.menu(jwtWithGroups(List.of("ADMIN")));
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(resp.getBody()).hasSize(1);
-        assertThat(resp.getBody().get(0).getId()).isEqualTo("flow-manager");
+        assertThat(ids(resp)).containsExactlyInAnyOrder(
+                "flow-manager", "integration-manager", "contract-manager", "validation-manager");
     }
 
-    @Test @DisplayName("WORKFLOWS recebe flow-manager")
-    void workflowsRecebeFlowManager() {
+    @Test @DisplayName("WORKFLOWS recebe flow/integration/contract (sem validation)")
+    void workflowsRecebeTres() {
         ResponseEntity<List<MenuItemDto>> resp = controller.menu(jwtWithGroups(List.of("WORKFLOWS")));
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(resp.getBody()).hasSize(1);
-        assertThat(resp.getBody().get(0).getId()).isEqualTo("flow-manager");
+        assertThat(ids(resp)).containsExactlyInAnyOrder(
+                "flow-manager", "integration-manager", "contract-manager");
     }
 
-    @Test @DisplayName("RULES recebe lista vazia")
-    void rulesRecebeListaVazia() {
+    @Test @DisplayName("RULES recebe contract e validation (sem flow/integration)")
+    void rulesRecebeContractEValidation() {
         ResponseEntity<List<MenuItemDto>> resp = controller.menu(jwtWithGroups(List.of("RULES")));
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(resp.getBody()).isEmpty();
+        assertThat(ids(resp)).containsExactlyInAnyOrder("contract-manager", "validation-manager");
     }
 
     @Test @DisplayName("Sem grupo recebe lista vazia")
@@ -88,5 +92,27 @@ class BffMenuControllerTest {
             throw new AssertionError("Campo requiredGroups não encontrado em MenuItemDto");
         }
         assertThat(field.isAnnotationPresent(com.fasterxml.jackson.annotation.JsonIgnore.class)).isTrue();
+    }
+
+    @Test @DisplayName("uiSchema retorna schema para cada feature conhecida")
+    void uiSchemaFeaturesConhecidas() {
+        for (String feature : List.of("flow-manager", "integration-manager", "contract-manager", "validation-manager")) {
+            var resp = controller.uiSchema(feature);
+            assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(resp.getBody().getType()).isEqualTo(feature);
+            assertThat(resp.getBody().getFeatureId()).isEqualTo(feature);
+            assertThat(resp.getBody().getTitle()).isNotBlank();
+        }
+    }
+
+    @Test @DisplayName("uiSchema retorna 404 para feature desconhecida")
+    void uiSchemaDesconhecida() {
+        var resp = controller.uiSchema("nope");
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test @DisplayName("health retorna UP")
+    void healthUp() {
+        assertThat(controller.health().getBody()).containsEntry("status", "UP");
     }
 }

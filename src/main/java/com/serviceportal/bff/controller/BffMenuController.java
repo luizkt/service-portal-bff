@@ -24,6 +24,31 @@ public class BffMenuController {
                     .uiSchemaUrl("/bff/features/flow-manager/ui-schema")
                     .requiredGroup("ADMIN")
                     .requiredGroup("WORKFLOWS")
+                    .build(),
+            MenuItemDto.builder()
+                    .id("integration-manager")
+                    .label("Integrações")
+                    .icon("integration")
+                    .uiSchemaUrl("/bff/features/integration-manager/ui-schema")
+                    .requiredGroup("ADMIN")
+                    .requiredGroup("WORKFLOWS")
+                    .build(),
+            MenuItemDto.builder()
+                    .id("contract-manager")
+                    .label("Contratos")
+                    .icon("contract")
+                    .uiSchemaUrl("/bff/features/contract-manager/ui-schema")
+                    .requiredGroup("ADMIN")
+                    .requiredGroup("WORKFLOWS")
+                    .requiredGroup("RULES")
+                    .build(),
+            MenuItemDto.builder()
+                    .id("validation-manager")
+                    .label("Validações")
+                    .icon("validation")
+                    .uiSchemaUrl("/bff/features/validation-manager/ui-schema")
+                    .requiredGroup("ADMIN")
+                    .requiredGroup("RULES")
                     .build()
     );
 
@@ -58,6 +83,27 @@ public class BffMenuController {
                             .featureId("flow-manager")
                             .type("flow-manager")
                             .title("Gerenciador de Fluxos")
+                            .build()
+            );
+            case "integration-manager" -> ResponseEntity.ok(
+                    UiSchemaDto.builder()
+                            .featureId("integration-manager")
+                            .type("integration-manager")
+                            .title("Gerenciamento de Integrações")
+                            .build()
+            );
+            case "contract-manager" -> ResponseEntity.ok(
+                    UiSchemaDto.builder()
+                            .featureId("contract-manager")
+                            .type("contract-manager")
+                            .title("Gerenciamento de Contratos")
+                            .build()
+            );
+            case "validation-manager" -> ResponseEntity.ok(
+                    UiSchemaDto.builder()
+                            .featureId("validation-manager")
+                            .type("validation-manager")
+                            .title("Gerenciamento de Validações")
                             .build()
             );
             default -> ResponseEntity.notFound().build();

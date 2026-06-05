@@ -62,7 +62,12 @@ val coverageIncludes = listOf(
     "com/serviceportal/bff/client/OrchestratorAuthService.class",
     "com/serviceportal/bff/controller/FlowProxyController.class",
     "com/serviceportal/bff/config/ManagerProperties.class",
-    "com/serviceportal/bff/config/BffProperties.class"
+    "com/serviceportal/bff/config/BffProperties.class",
+    // S4 — telas de gerenciamento: proxies de integrations/contracts/validations + menu
+    "com/serviceportal/bff/controller/IntegrationProxyController.class",
+    "com/serviceportal/bff/controller/ContractProxyController.class",
+    "com/serviceportal/bff/controller/ValidationProxyController.class",
+    "com/serviceportal/bff/controller/BffMenuController.class"
 )
 
 tasks.named<JacocoReport>("jacocoTestReport") {

@@ -1,6 +1,33 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2026 Luiz
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 package com.serviceportal.bff.client;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.serviceportal.bff.config.ManagerProperties;
+import java.io.IOException;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -9,11 +36,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.reactive.function.client.WebClient;
-
-import java.io.IOException;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ManagerAuthServiceTest {
 
@@ -30,18 +52,24 @@ class ManagerAuthServiceTest {
         props.setUsername("admin");
         props.setPassword("admin");
 
-        WebClient webClient = WebClient.builder().baseUrl(mockWebServer.url("/").toString()).build();
+        WebClient webClient =
+                WebClient.builder().baseUrl(mockWebServer.url("/").toString()).build();
         authService = new ManagerAuthService(webClient, props);
     }
 
     @AfterEach
-    void tearDown() throws IOException { mockWebServer.shutdown(); }
+    void tearDown() throws IOException {
+        mockWebServer.shutdown();
+    }
 
-    @Test @DisplayName("getToken faz login e devolve token")
+    @Test
+    @DisplayName("getToken faz login e devolve token")
     void getTokenLogin() throws InterruptedException {
-        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
-                .setHeader("Content-Type", "application/json")
-                .setBody("{\"token\":\"jwt-1\"}"));
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("{\"token\":\"jwt-1\"}"));
 
         assertThat(authService.getToken()).isEqualTo("jwt-1");
 
@@ -50,20 +78,28 @@ class ManagerAuthServiceTest {
         assertThat(req.getBody().readUtf8()).contains("admin");
     }
 
-    @Test @DisplayName("getToken usa cache nas chamadas subsequentes")
+    @Test
+    @DisplayName("getToken usa cache nas chamadas subsequentes")
     void getTokenCacheado() {
-        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
-                .setHeader("Content-Type", "application/json").setBody("{\"token\":\"cached\"}"));
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("{\"token\":\"cached\"}"));
 
         assertThat(authService.getToken()).isEqualTo("cached");
         assertThat(authService.getToken()).isEqualTo("cached");
         assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
     }
 
-    @Test @DisplayName("getToken lança quando Manager devolve resposta sem token")
+    @Test
+    @DisplayName("getToken lança quando Manager devolve resposta sem token")
     void semToken() {
-        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
-                .setHeader("Content-Type", "application/json").setBody("{}"));
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("{}"));
         assertThatThrownBy(() -> authService.getToken())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("sem token");

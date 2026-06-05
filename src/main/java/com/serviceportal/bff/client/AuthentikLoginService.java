@@ -1,14 +1,32 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2026 Luiz
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 package com.serviceportal.bff.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.serviceportal.bff.config.AuthProperties;
 import com.serviceportal.bff.dto.AuthentikTokenDto;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.stereotype.Service;
-
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.URI;
@@ -22,19 +40,21 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.stereotype.Service;
 
 /**
- * Autentica usuários via Authentik Flow Executor (protocolo multi-step JSON),
- * captura o authorization code e troca por tokens PKCE.
+ * Autentica usuários via Authentik Flow Executor (protocolo multi-step JSON), captura o
+ * authorization code e troca por tokens PKCE.
  *
- * Protocolo (seguimento manual de todos os redirects — HTTP/1.1 forçado):
- *  1. GET  /api/v3/flows/executor/service-portal-ropc/   → identification challenge
- *  2. POST uid_field=username                            → 302 (PRG em Docker) ou 200 xak-flow-redirect
- *  3. GET  flow URL (segue o redirect)                  → ak-stage-password
- *  4. POST component=ak-stage-password, password=...     → 302
- *  5. GET  flow URL (segue o redirect)                  → xak-flow-redirect (autenticado)
- *  6. GET  /application/o/authorize/?...&code_challenge  → 302 para redirect_uri com code
- *  7. POST /application/o/token/ com code + code_verifier → tokens
+ * <p>Protocolo (seguimento manual de todos os redirects — HTTP/1.1 forçado): 1. GET
+ * /api/v3/flows/executor/service-portal-ropc/ → identification challenge 2. POST uid_field=username
+ * → 302 (PRG em Docker) ou 200 xak-flow-redirect 3. GET flow URL (segue o redirect) →
+ * ak-stage-password 4. POST component=ak-stage-password, password=... → 302 5. GET flow URL (segue
+ * o redirect) → xak-flow-redirect (autenticado) 6. GET /application/o/authorize/?...&code_challenge
+ * → 302 para redirect_uri com code 7. POST /application/o/token/ com code + code_verifier → tokens
  */
 @Slf4j
 @Service
@@ -56,12 +76,13 @@ public class AuthentikLoginService {
 
         // Um único client: HTTP/1.1 forçado, SEM seguimento automático de redirects.
         // Seguimos todos os 302 manualmente com um GET limpo (sem headers do POST original).
-        HttpClient client = HttpClient.newBuilder()
-                .cookieHandler(cookies)
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
+        HttpClient client =
+                HttpClient.newBuilder()
+                        .cookieHandler(cookies)
+                        .followRedirects(HttpClient.Redirect.NEVER)
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .build();
 
         String base = authProperties.getAuthentikBaseUrl();
         String flowUrl = base + "/api/v3/flows/executor/" + FLOW_SLUG + "/";
@@ -73,8 +94,10 @@ public class AuthentikLoginService {
         // Authentik pode retornar:
         //   • 200 com xak-flow-redirect (host/desenvolvimento)
         //   • 302 para o mesmo flowUrl (Docker/PRG pattern)
-        String identBody = "{\"component\":\"ak-stage-identification\",\"uid_field\":"
-                + objectMapper.writeValueAsString(username) + "}";
+        String identBody =
+                "{\"component\":\"ak-stage-identification\",\"uid_field\":"
+                        + objectMapper.writeValueAsString(username)
+                        + "}";
         HttpResponse<String> identResp = apiPost(client, flowUrl, identBody);
 
         if (identResp.statusCode() == 302) {
@@ -99,8 +122,10 @@ public class AuthentikLoginService {
         }
 
         // ── Passo 3: POST password ────────────────────────────────────────────────────
-        String passBody = "{\"component\":\"ak-stage-password\",\"password\":"
-                + objectMapper.writeValueAsString(password) + "}";
+        String passBody =
+                "{\"component\":\"ak-stage-password\",\"password\":"
+                        + objectMapper.writeValueAsString(password)
+                        + "}";
         HttpResponse<String> passResp = apiPost(client, flowUrl, passBody);
         log.debug("Password POST for '{}': status={}", username, passResp.statusCode());
 
@@ -117,7 +142,10 @@ public class AuthentikLoginService {
             // 200 com xak-flow-redirect = sucesso sem redirect intermediário
             String comp = extractComponent(passResp.body());
             if (!"xak-flow-redirect".equals(comp)) {
-                log.warn("Auth failed for '{}': password stage returned component={}", username, comp);
+                log.warn(
+                        "Auth failed for '{}': password stage returned component={}",
+                        username,
+                        comp);
                 throw new BadCredentialsException("Usuário ou senha inválidos");
             }
         } else {
@@ -129,48 +157,74 @@ public class AuthentikLoginService {
         String codeChallenge = generateCodeChallenge(codeVerifier);
         String state = generateState();
 
-        String authorizeUrl = base + "/application/o/authorize/"
-                + "?client_id=" + authProperties.getClientId()
-                + "&response_type=code"
-                + "&redirect_uri=" + URLEncoder.encode(PKCE_REDIRECT_URI, StandardCharsets.UTF_8)
-                + "&scope=" + URLEncoder.encode(String.join(" ", authProperties.getScopes()), StandardCharsets.UTF_8)
-                + "&state=" + state
-                + "&code_challenge=" + codeChallenge
-                + "&code_challenge_method=S256";
+        String authorizeUrl =
+                base
+                        + "/application/o/authorize/"
+                        + "?client_id="
+                        + authProperties.getClientId()
+                        + "&response_type=code"
+                        + "&redirect_uri="
+                        + URLEncoder.encode(PKCE_REDIRECT_URI, StandardCharsets.UTF_8)
+                        + "&scope="
+                        + URLEncoder.encode(
+                                String.join(" ", authProperties.getScopes()),
+                                StandardCharsets.UTF_8)
+                        + "&state="
+                        + state
+                        + "&code_challenge="
+                        + codeChallenge
+                        + "&code_challenge_method=S256";
 
         HttpResponse<String> authResp = apiGet(client, authorizeUrl);
 
         if (authResp.statusCode() != 302) {
             log.error("Authorize step returned {} for user '{}'", authResp.statusCode(), username);
-            throw new IllegalStateException("Authorization step failed (status " + authResp.statusCode() + ")");
+            throw new IllegalStateException(
+                    "Authorization step failed (status " + authResp.statusCode() + ")");
         }
 
-        String location = authResp.headers().firstValue("Location")
-                .orElseThrow(() -> new IllegalStateException("No Location header in authorize response"));
+        String location =
+                authResp.headers()
+                        .firstValue("Location")
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "No Location header in authorize response"));
 
         String code = extractQueryParam(location, "code");
         if (code == null || code.isEmpty()) {
             String error = extractQueryParam(location, "error");
-            throw new IllegalStateException("Authorization failed" + (error != null ? ": " + error : ""));
+            throw new IllegalStateException(
+                    "Authorization failed" + (error != null ? ": " + error : ""));
         }
 
         // ── Passo 5: troca o code por tokens ─────────────────────────────────────────
-        String tokenBody = "grant_type=authorization_code"
-                + "&code=" + URLEncoder.encode(code, StandardCharsets.UTF_8)
-                + "&redirect_uri=" + URLEncoder.encode(PKCE_REDIRECT_URI, StandardCharsets.UTF_8)
-                + "&client_id=" + authProperties.getClientId()
-                + "&code_verifier=" + codeVerifier;
+        String tokenBody =
+                "grant_type=authorization_code"
+                        + "&code="
+                        + URLEncoder.encode(code, StandardCharsets.UTF_8)
+                        + "&redirect_uri="
+                        + URLEncoder.encode(PKCE_REDIRECT_URI, StandardCharsets.UTF_8)
+                        + "&client_id="
+                        + authProperties.getClientId()
+                        + "&code_verifier="
+                        + codeVerifier;
 
-        HttpResponse<String> tokenResp = client.send(
-                HttpRequest.newBuilder()
-                        .uri(URI.create(base + "/application/o/token/"))
-                        .header("Content-Type", "application/x-www-form-urlencoded")
-                        .header("Accept", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(tokenBody)).build(),
-                HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> tokenResp =
+                client.send(
+                        HttpRequest.newBuilder()
+                                .uri(URI.create(base + "/application/o/token/"))
+                                .header("Content-Type", "application/x-www-form-urlencoded")
+                                .header("Accept", "application/json")
+                                .POST(HttpRequest.BodyPublishers.ofString(tokenBody))
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString());
 
         if (tokenResp.statusCode() != 200) {
-            log.error("Token exchange failed (status {}): {}", tokenResp.statusCode(), tokenResp.body());
+            log.error(
+                    "Token exchange failed (status {}): {}",
+                    tokenResp.statusCode(),
+                    tokenResp.body());
             throw new IllegalStateException("Token exchange failed");
         }
 
@@ -187,17 +241,23 @@ public class AuthentikLoginService {
 
     private HttpResponse<String> apiGet(HttpClient client, String url) throws Exception {
         return client.send(
-                HttpRequest.newBuilder().uri(URI.create(url))
-                        .header("Accept", "application/json, text/html, */*").GET().build(),
+                HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Accept", "application/json, text/html, */*")
+                        .GET()
+                        .build(),
                 HttpResponse.BodyHandlers.ofString());
     }
 
-    private HttpResponse<String> apiPost(HttpClient client, String url, String jsonBody) throws Exception {
+    private HttpResponse<String> apiPost(HttpClient client, String url, String jsonBody)
+            throws Exception {
         return client.send(
-                HttpRequest.newBuilder().uri(URI.create(url))
+                HttpRequest.newBuilder()
+                        .uri(URI.create(url))
                         .header("Content-Type", "application/json")
                         .header("Accept", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody)).build(),
+                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                        .build(),
                 HttpResponse.BodyHandlers.ofString());
     }
 
@@ -251,8 +311,9 @@ public class AuthentikLoginService {
     }
 
     private String generateCodeChallenge(String verifier) throws Exception {
-        byte[] hash = MessageDigest.getInstance("SHA-256")
-                .digest(verifier.getBytes(StandardCharsets.US_ASCII));
+        byte[] hash =
+                MessageDigest.getInstance("SHA-256")
+                        .digest(verifier.getBytes(StandardCharsets.US_ASCII));
         return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
     }
 

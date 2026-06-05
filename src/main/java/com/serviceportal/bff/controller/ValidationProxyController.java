@@ -1,6 +1,30 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2026 Luiz
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 package com.serviceportal.bff.controller;
 
 import com.serviceportal.bff.client.ManagerClient;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -8,14 +32,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
-import java.util.Map;
-
 /**
  * Proxy do BFF para validations → service-portal-manager.
  *
- * Acesso (espelha as regras do Manager):
- *   - Leitura (GET): ADMIN, RULES
- *   - Escrita (POST/PUT/DELETE): ADMIN, RULES
+ * <p>Acesso (espelha as regras do Manager): - Leitura (GET): ADMIN, RULES - Escrita
+ * (POST/PUT/DELETE): ADMIN, RULES
  */
 @RestController
 @RequestMapping("/bff/validations")
@@ -36,15 +57,15 @@ public class ValidationProxyController {
 
     @GetMapping("/{validationId}/versions")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
-    public ResponseEntity<Object> listVersions(@PathVariable String validationId,
-                                               @RequestParam(required = false) String status) {
+    public ResponseEntity<Object> listVersions(
+            @PathVariable String validationId, @RequestParam(required = false) String status) {
         return ResponseEntity.ok(managerClient.listValidationVersions(validationId, status));
     }
 
     @GetMapping("/{validationId}/versions/{version}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
-    public ResponseEntity<Map<String, Object>> get(@PathVariable String validationId,
-                                                   @PathVariable int version) {
+    public ResponseEntity<Map<String, Object>> get(
+            @PathVariable String validationId, @PathVariable int version) {
         try {
             return ResponseEntity.ok(managerClient.getValidation(validationId, version));
         } catch (WebClientResponseException.NotFound e) {
@@ -56,7 +77,8 @@ public class ValidationProxyController {
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
     public ResponseEntity<Map<String, Object>> create(@RequestBody Map<String, Object> body) {
         try {
-            return ResponseEntity.status(HttpStatus.CREATED).body(managerClient.createValidation(body));
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(managerClient.createValidation(body));
         } catch (WebClientResponseException.Conflict e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         } catch (WebClientResponseException.BadRequest e) {
@@ -66,11 +88,13 @@ public class ValidationProxyController {
 
     @PutMapping("/{validationId}/versions/{version}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
-    public ResponseEntity<Map<String, Object>> update(@PathVariable String validationId,
-                                                      @PathVariable int version,
-                                                      @RequestBody Map<String, Object> body) {
+    public ResponseEntity<Map<String, Object>> update(
+            @PathVariable String validationId,
+            @PathVariable int version,
+            @RequestBody Map<String, Object> body) {
         try {
-            return ResponseEntity.status(HttpStatus.CREATED).body(managerClient.updateValidation(validationId, version, body));
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(managerClient.updateValidation(validationId, version, body));
         } catch (WebClientResponseException.NotFound e) {
             return ResponseEntity.notFound().build();
         }
@@ -78,8 +102,8 @@ public class ValidationProxyController {
 
     @DeleteMapping("/{validationId}/versions/{version}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
-    public ResponseEntity<Void> delete(@PathVariable String validationId,
-                                       @PathVariable int version) {
+    public ResponseEntity<Void> delete(
+            @PathVariable String validationId, @PathVariable int version) {
         try {
             managerClient.deleteValidation(validationId, version);
             return ResponseEntity.noContent().build();

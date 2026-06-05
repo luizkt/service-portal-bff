@@ -1,4 +1,10 @@
 spring:
+  boot:
+    admin:
+      client:
+        url: ${SPRING_BOOT_ADMIN_URL:http://spring-boot-admin:8080}
+        instance:
+          service-base-url: http://bff:${SERVER_PORT:8081}
   security:
     oauth2:
       resourceserver:

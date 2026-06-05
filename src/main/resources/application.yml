@@ -4,6 +4,12 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
+  boot:
+    admin:
+      client:
+        url: ${SPRING_BOOT_ADMIN_URL:http://localhost:8085}
+        username: ${SBA_USERNAME:admin}
+        password: ${SBA_PASSWORD:admin}
   security:
     oauth2:
       resourceserver:
@@ -45,7 +51,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,threaddump,heapdump,loggers,env,beans,caches
+  endpoint:
+    health:
+      show-details: always
 
 logging:
   level:

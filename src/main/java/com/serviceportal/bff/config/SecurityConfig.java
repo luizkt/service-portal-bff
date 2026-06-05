@@ -72,9 +72,9 @@ public class SecurityConfig {
                                 auth.requestMatchers(
                                                 "/bff/health",
                                                 "/bff/auth/config",
-                                                "/bff/auth/login",
-                                                "/actuator/health",
-                                                "/actuator/info")
+                                                "/bff/auth/login")
+                                        .permitAll()
+                                        .requestMatchers("/actuator/**")
                                         .permitAll()
                                         .anyRequest()
                                         .authenticated())

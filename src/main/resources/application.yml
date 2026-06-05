@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: service-portal-bff
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # URL interna: acessada pelo container BFF via DNS do Docker
+          jwk-set-uri: ${AUTHENTIK_JWKS_URI:http://localhost:9000/application/o/service-portal/jwks/}
+
+server:
+  port: ${SERVER_PORT:8081}
+
+bff:
+  orchestrator:
+    # Apenas execução de fluxos — POST /api/orchestrate/{version}/{flowId}
+    base-url: ${ORCHESTRATOR_URL:http://localhost:8080}
+    username: ${ORCHESTRATOR_USERNAME:admin}
+    password: ${ORCHESTRATOR_PASSWORD:admin}
+  manager:
+    # CRUD de fluxos — service-portal-manager
+    base-url: ${MANAGER_URL:http://localhost:8082}
+    username: ${MANAGER_USERNAME:admin}
+    password: ${MANAGER_PASSWORD:admin}
+  auth:
+    # URL pública do issuer SPA (claim "iss" dos tokens PKCE do frontend)
+    issuer-uri: ${AUTHENTIK_ISSUER_URI:http://localhost:9000/application/o/service-portal/}
+    # Lista de issuers aceitos (separados por vírgula) — inclui SPA + M2M para testes
+    allowed-issuers: "${AUTHENTIK_ISSUER_URI:http://localhost:9000/application/o/service-portal/},${AUTHENTIK_M2M_ISSUER_URI:http://localhost:9000/application/o/service-portal-m2m/}"
+    # Client ID público da SPA cadastrado no Authentik (provider OAuth2/OIDC)
+    client-id: ${AUTHENTIK_CLIENT_ID:service-portal-spa}
+    # Scopes que o frontend solicita no /authorize
+    scopes:
+      - openid
+      - profile
+      - email
+      - groups
+    # URL interna do Authentik para o BFF autenticar usuários via Flow Executor
+    authentik-base-url: ${AUTHENTIK_BASE_URL:http://localhost:9000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.serviceportal.bff: DEBUG

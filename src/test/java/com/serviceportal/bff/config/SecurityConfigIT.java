@@ -92,6 +92,12 @@ class SecurityConfigIT {
         mvc.perform(get("/bff/health")).andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("GET /v3/api-docs é público e retorna 200 sem token")
+    void swaggerApiDocsPublico() throws Exception {
+        mvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
+    }
+
     // ─── autenticação requerida ────────────────────────────────────────────
 
     @Test

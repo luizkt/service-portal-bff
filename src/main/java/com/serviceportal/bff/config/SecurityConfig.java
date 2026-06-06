@@ -72,7 +72,11 @@ public class SecurityConfig {
                                 auth.requestMatchers(
                                                 "/bff/health",
                                                 "/bff/auth/config",
-                                                "/bff/auth/login")
+                                                "/bff/auth/login",
+                                                "/swagger-ui/**",
+                                                "/swagger-ui.html",
+                                                "/v3/api-docs",
+                                                "/v3/api-docs/**")
                                         .permitAll()
                                         .requestMatchers("/actuator/**")
                                         .permitAll()

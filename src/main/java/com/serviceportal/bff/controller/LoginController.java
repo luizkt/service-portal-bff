@@ -26,6 +26,11 @@ package com.serviceportal.bff.controller;
 import com.serviceportal.bff.client.AuthentikLoginService;
 import com.serviceportal.bff.dto.AuthentikTokenDto;
 import com.serviceportal.bff.dto.LoginRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +42,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Auth")
 @Slf4j
 @RestController
 @RequestMapping("/bff/auth")
@@ -45,10 +51,25 @@ public class LoginController {
 
     private final AuthentikLoginService loginService;
 
-    /**
-     * Endpoint público — recebe username/senha do frontend e autentica via Authentik Flow Executor
-     * server-side. Retorna tokens OAuth2/OIDC prontos para uso.
-     */
+    @Operation(
+            summary = "Autenticar usuário",
+            description =
+                    "Autentica via Authentik Flow Executor server-side e retorna tokens OAuth2/OIDC.")
+    @ApiResponses({
+        @ApiResponse(
+                responseCode = "200",
+                description = "Login bem-sucedido",
+                content =
+                        @Content(
+                                examples =
+                                        @ExampleObject(
+                                                value =
+                                                        "{\"access_token\":\"eyJhbGciOiJSUzI1NiJ9...\","
+                                                                + "\"id_token\":\"eyJhbGciOiJSUzI1NiJ9...\","
+                                                                + "\"expires_in\":3600,"
+                                                                + "\"token_type\":\"Bearer\"}"))),
+        @ApiResponse(responseCode = "401", description = "Credenciais inválidas")
+    })
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         try {

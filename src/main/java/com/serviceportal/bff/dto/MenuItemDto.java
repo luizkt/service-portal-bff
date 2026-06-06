@@ -24,6 +24,7 @@
 package com.serviceportal.bff.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import lombok.Builder;
 import lombok.Data;
@@ -32,9 +33,19 @@ import lombok.Singular;
 @Data
 @Builder
 public class MenuItemDto {
+
+    @Schema(description = "Identificador da feature", example = "flow-manager")
     private String id;
+
+    @Schema(description = "Rótulo exibido na sidebar", example = "Gerenciador de Fluxos")
     private String label;
+
+    @Schema(description = "Ícone da sidebar", example = "workflow")
     private String icon;
+
+    @Schema(
+            description = "URL para buscar o UI Schema desta feature",
+            example = "/bff/features/flow-manager/ui-schema")
     private String uiSchemaUrl;
 
     /** Grupos que podem ver este item. Vazio = público (sem restrição). Não enviado ao frontend. */

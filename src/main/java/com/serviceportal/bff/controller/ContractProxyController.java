@@ -24,6 +24,10 @@
 package com.serviceportal.bff.controller;
 
 import com.serviceportal.bff.client.ManagerClient;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -38,6 +42,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
  * <p>Acesso (espelha as regras do Manager): - Leitura (GET): ADMIN, WORKFLOWS, RULES - Escrita
  * (POST/PUT/DELETE): ADMIN, WORKFLOWS
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Contracts")
 @RestController
 @RequestMapping("/bff/contracts")
 @RequiredArgsConstructor
@@ -45,27 +50,43 @@ public class ContractProxyController {
 
     private final ManagerClient managerClient;
 
+    @Operation(summary = "Listar contratos (paginado)")
+    @ApiResponse(responseCode = "200", description = "Página de contratos ou lista de ativos")
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'WORKFLOWS', 'RULES')")
     public ResponseEntity<Object> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sort,
-            @RequestParam(required = false) String status) {
+            @Parameter(description = "Use 'active' para listar todos os ativos")
+                    @RequestParam(required = false)
+                    String status) {
         return ResponseEntity.ok(managerClient.listContracts(page, size, sort, status));
     }
 
+    @Operation(summary = "Histórico de versões de um contrato")
+    @ApiResponse(responseCode = "200", description = "Lista de versões")
     @GetMapping("/{contractId}/versions")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'WORKFLOWS', 'RULES')")
     public ResponseEntity<Object> listVersions(
-            @PathVariable String contractId, @RequestParam(required = false) String status) {
+            @Parameter(description = "ID do contrato", example = "create-order") @PathVariable
+                    String contractId,
+            @Parameter(description = "Filtro: active | inactive") @RequestParam(required = false)
+                    String status) {
         return ResponseEntity.ok(managerClient.listContractVersions(contractId, status));
     }
 
+    @Operation(summary = "Buscar contrato por versão")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Contrato encontrado"),
+        @ApiResponse(responseCode = "404", description = "Não encontrado")
+    })
     @GetMapping("/{contractId}/versions/{version}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'WORKFLOWS', 'RULES')")
     public ResponseEntity<Map<String, Object>> get(
-            @PathVariable String contractId, @PathVariable int version) {
+            @Parameter(description = "ID do contrato", example = "create-order") @PathVariable
+                    String contractId,
+            @Parameter(description = "Número da versão", example = "1") @PathVariable int version) {
         try {
             return ResponseEntity.ok(managerClient.getContract(contractId, version));
         } catch (WebClientResponseException.NotFound e) {
@@ -73,6 +94,11 @@ public class ContractProxyController {
         }
     }
 
+    @Operation(summary = "Criar contrato")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Criado"),
+        @ApiResponse(responseCode = "409", description = "Já existe")
+    })
     @PostMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'WORKFLOWS')")
     public ResponseEntity<Map<String, Object>> create(@RequestBody Map<String, Object> body) {
@@ -86,11 +112,18 @@ public class ContractProxyController {
         }
     }
 
+    @Operation(summary = "Atualizar contrato (nova versão)")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Nova versão criada"),
+        @ApiResponse(responseCode = "404", description = "Não encontrado")
+    })
     @PutMapping("/{contractId}/versions/{version}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'WORKFLOWS')")
     public ResponseEntity<Map<String, Object>> update(
-            @PathVariable String contractId,
-            @PathVariable int version,
+            @Parameter(description = "ID do contrato", example = "create-order") @PathVariable
+                    String contractId,
+            @Parameter(description = "Número da versão atual", example = "1") @PathVariable
+                    int version,
             @RequestBody Map<String, Object> body) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
@@ -100,9 +133,17 @@ public class ContractProxyController {
         }
     }
 
+    @Operation(summary = "Desativar contrato")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Desativado"),
+        @ApiResponse(responseCode = "404", description = "Não encontrado")
+    })
     @DeleteMapping("/{contractId}/versions/{version}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'WORKFLOWS')")
-    public ResponseEntity<Void> delete(@PathVariable String contractId, @PathVariable int version) {
+    public ResponseEntity<Void> delete(
+            @Parameter(description = "ID do contrato", example = "create-order") @PathVariable
+                    String contractId,
+            @Parameter(description = "Número da versão", example = "1") @PathVariable int version) {
         try {
             managerClient.deleteContract(contractId, version);
             return ResponseEntity.noContent().build();

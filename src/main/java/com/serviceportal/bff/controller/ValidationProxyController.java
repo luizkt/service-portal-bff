@@ -24,6 +24,10 @@
 package com.serviceportal.bff.controller;
 
 import com.serviceportal.bff.client.ManagerClient;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -38,6 +42,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
  * <p>Acesso (espelha as regras do Manager): - Leitura (GET): ADMIN, RULES - Escrita
  * (POST/PUT/DELETE): ADMIN, RULES
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Validations")
 @RestController
 @RequestMapping("/bff/validations")
 @RequiredArgsConstructor
@@ -45,27 +50,45 @@ public class ValidationProxyController {
 
     private final ManagerClient managerClient;
 
+    @Operation(summary = "Listar validações (paginado)")
+    @ApiResponse(responseCode = "200", description = "Página de validações ou lista de ativas")
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
     public ResponseEntity<Object> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sort,
-            @RequestParam(required = false) String status) {
+            @Parameter(description = "Use 'active' para listar todas as ativas")
+                    @RequestParam(required = false)
+                    String status) {
         return ResponseEntity.ok(managerClient.listValidations(page, size, sort, status));
     }
 
+    @Operation(summary = "Histórico de versões de uma validação")
+    @ApiResponse(responseCode = "200", description = "Lista de versões")
     @GetMapping("/{validationId}/versions")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
     public ResponseEntity<Object> listVersions(
-            @PathVariable String validationId, @RequestParam(required = false) String status) {
+            @Parameter(description = "ID da validação", example = "check-credit-limit")
+                    @PathVariable
+                    String validationId,
+            @Parameter(description = "Filtro: active | inactive") @RequestParam(required = false)
+                    String status) {
         return ResponseEntity.ok(managerClient.listValidationVersions(validationId, status));
     }
 
+    @Operation(summary = "Buscar validação por versão")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Validação encontrada"),
+        @ApiResponse(responseCode = "404", description = "Não encontrada")
+    })
     @GetMapping("/{validationId}/versions/{version}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
     public ResponseEntity<Map<String, Object>> get(
-            @PathVariable String validationId, @PathVariable int version) {
+            @Parameter(description = "ID da validação", example = "check-credit-limit")
+                    @PathVariable
+                    String validationId,
+            @Parameter(description = "Número da versão", example = "1") @PathVariable int version) {
         try {
             return ResponseEntity.ok(managerClient.getValidation(validationId, version));
         } catch (WebClientResponseException.NotFound e) {
@@ -73,6 +96,11 @@ public class ValidationProxyController {
         }
     }
 
+    @Operation(summary = "Criar validação")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Criada"),
+        @ApiResponse(responseCode = "409", description = "Já existe")
+    })
     @PostMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
     public ResponseEntity<Map<String, Object>> create(@RequestBody Map<String, Object> body) {
@@ -86,11 +114,19 @@ public class ValidationProxyController {
         }
     }
 
+    @Operation(summary = "Atualizar validação (nova versão)")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Nova versão criada"),
+        @ApiResponse(responseCode = "404", description = "Não encontrada")
+    })
     @PutMapping("/{validationId}/versions/{version}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
     public ResponseEntity<Map<String, Object>> update(
-            @PathVariable String validationId,
-            @PathVariable int version,
+            @Parameter(description = "ID da validação", example = "check-credit-limit")
+                    @PathVariable
+                    String validationId,
+            @Parameter(description = "Número da versão atual", example = "1") @PathVariable
+                    int version,
             @RequestBody Map<String, Object> body) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
@@ -100,10 +136,18 @@ public class ValidationProxyController {
         }
     }
 
+    @Operation(summary = "Desativar validação")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Desativada"),
+        @ApiResponse(responseCode = "404", description = "Não encontrada")
+    })
     @DeleteMapping("/{validationId}/versions/{version}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'RULES')")
     public ResponseEntity<Void> delete(
-            @PathVariable String validationId, @PathVariable int version) {
+            @Parameter(description = "ID da validação", example = "check-credit-limit")
+                    @PathVariable
+                    String validationId,
+            @Parameter(description = "Número da versão", example = "1") @PathVariable int version) {
         try {
             managerClient.deleteValidation(validationId, version);
             return ResponseEntity.noContent().build();

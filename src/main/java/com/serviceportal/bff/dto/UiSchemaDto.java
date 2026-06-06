@@ -23,13 +23,22 @@
  */
 package com.serviceportal.bff.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
 
 @Data
 @Builder
 public class UiSchemaDto {
+
+    @Schema(description = "Identificador da feature", example = "flow-manager")
     private String featureId;
+
+    @Schema(description = "Tipo de componente React a renderizar", example = "flow-manager")
     private String type;
+
+    @Schema(
+            description = "Título exibido no cabeçalho da feature",
+            example = "Gerenciador de Fluxos")
     private String title;
 }

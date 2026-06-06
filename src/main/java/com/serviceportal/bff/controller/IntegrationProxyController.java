@@ -24,6 +24,10 @@
 package com.serviceportal.bff.controller;
 
 import com.serviceportal.bff.client.ManagerClient;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -38,6 +42,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
  * <p>Acesso (espelha as regras do Manager): - Leitura (GET): ADMIN, WORKFLOWS - Escrita
  * (POST/PUT/DELETE): somente ADMIN
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Integrations")
 @RestController
 @RequestMapping("/bff/integrations")
 @RequiredArgsConstructor
@@ -45,27 +50,43 @@ public class IntegrationProxyController {
 
     private final ManagerClient managerClient;
 
+    @Operation(summary = "Listar integrações (paginado)")
+    @ApiResponse(responseCode = "200", description = "Página de integrações ou lista de ativas")
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'WORKFLOWS')")
     public ResponseEntity<Object> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sort,
-            @RequestParam(required = false) String status) {
+            @Parameter(description = "Use 'active' para listar todas as ativas")
+                    @RequestParam(required = false)
+                    String status) {
         return ResponseEntity.ok(managerClient.listIntegrations(page, size, sort, status));
     }
 
+    @Operation(summary = "Histórico de versões de uma integração")
+    @ApiResponse(responseCode = "200", description = "Lista de versões")
     @GetMapping("/{integrationId}/versions")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'WORKFLOWS')")
     public ResponseEntity<Object> listVersions(
-            @PathVariable String integrationId, @RequestParam(required = false) String status) {
+            @Parameter(description = "ID da integração", example = "validate-client") @PathVariable
+                    String integrationId,
+            @Parameter(description = "Filtro: active | inactive") @RequestParam(required = false)
+                    String status) {
         return ResponseEntity.ok(managerClient.listIntegrationVersions(integrationId, status));
     }
 
+    @Operation(summary = "Buscar integração por versão")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Integração encontrada"),
+        @ApiResponse(responseCode = "404", description = "Não encontrada")
+    })
     @GetMapping("/{integrationId}/versions/{version}")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'WORKFLOWS')")
     public ResponseEntity<Map<String, Object>> get(
-            @PathVariable String integrationId, @PathVariable int version) {
+            @Parameter(description = "ID da integração", example = "validate-client") @PathVariable
+                    String integrationId,
+            @Parameter(description = "Número da versão", example = "1") @PathVariable int version) {
         try {
             return ResponseEntity.ok(managerClient.getIntegration(integrationId, version));
         } catch (WebClientResponseException.NotFound e) {
@@ -73,6 +94,11 @@ public class IntegrationProxyController {
         }
     }
 
+    @Operation(summary = "Criar integração")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Criada"),
+        @ApiResponse(responseCode = "409", description = "Já existe")
+    })
     @PostMapping
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Map<String, Object>> create(@RequestBody Map<String, Object> body) {
@@ -86,11 +112,18 @@ public class IntegrationProxyController {
         }
     }
 
+    @Operation(summary = "Atualizar integração (nova versão)")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Nova versão criada"),
+        @ApiResponse(responseCode = "404", description = "Não encontrada")
+    })
     @PutMapping("/{integrationId}/versions/{version}")
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Map<String, Object>> update(
-            @PathVariable String integrationId,
-            @PathVariable int version,
+            @Parameter(description = "ID da integração", example = "validate-client") @PathVariable
+                    String integrationId,
+            @Parameter(description = "Número da versão atual", example = "1") @PathVariable
+                    int version,
             @RequestBody Map<String, Object> body) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
@@ -100,10 +133,17 @@ public class IntegrationProxyController {
         }
     }
 
+    @Operation(summary = "Desativar integração")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Desativada"),
+        @ApiResponse(responseCode = "404", description = "Não encontrada")
+    })
     @DeleteMapping("/{integrationId}/versions/{version}")
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Void> delete(
-            @PathVariable String integrationId, @PathVariable int version) {
+            @Parameter(description = "ID da integração", example = "validate-client") @PathVariable
+                    String integrationId,
+            @Parameter(description = "Número da versão", example = "1") @PathVariable int version) {
         try {
             managerClient.deleteIntegration(integrationId, version);
             return ResponseEntity.noContent().build();

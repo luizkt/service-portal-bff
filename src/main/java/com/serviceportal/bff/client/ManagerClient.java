@@ -76,6 +76,7 @@ public class ManagerClient {
                             if (status != null && !status.isBlank()) b.queryParam("status", status);
                             return b.build();
                         })
+                .attribute(WebClient.class.getName() + ".uriTemplate", "/manager/flows")
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(Object.class)
@@ -161,13 +162,14 @@ public class ManagerClient {
                 .uri(
                         uri -> {
                             var b =
-                                    uri.path("/manager/" + resource)
+                                    uri.path("/manager/{resource}")
                                             .queryParam("page", page)
                                             .queryParam("size", size);
                             if (sort != null && !sort.isBlank()) b.queryParam("sort", sort);
                             if (status != null && !status.isBlank()) b.queryParam("status", status);
-                            return b.build();
+                            return b.build(resource);
                         })
+                .attribute(WebClient.class.getName() + ".uriTemplate", "/manager/{resource}")
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(Object.class)
@@ -189,10 +191,13 @@ public class ManagerClient {
                 .get()
                 .uri(
                         uri -> {
-                            var b = uri.path("/manager/" + resource + "/" + id + "/versions");
+                            var b = uri.path("/manager/{resource}/{id}/versions");
                             if (status != null && !status.isBlank()) b.queryParam("status", status);
-                            return b.build();
+                            return b.build(resource, id);
                         })
+                .attribute(
+                        WebClient.class.getName() + ".uriTemplate",
+                        "/manager/{resource}/{id}/versions")
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(Object.class)

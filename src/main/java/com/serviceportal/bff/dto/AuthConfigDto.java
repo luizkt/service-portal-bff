@@ -23,6 +23,7 @@
  */
 package com.serviceportal.bff.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import lombok.Builder;
 import lombok.Data;
@@ -31,12 +32,19 @@ import lombok.Data;
 @Data
 @Builder
 public class AuthConfigDto {
-    /** Issuer público do Authentik (frontend usa para descobrir endpoints OIDC). */
+
+    @Schema(
+            description = "URL base do issuer Authentik",
+            example = "http://localhost:9000/application/o/service-portal/")
     private String issuerUri;
 
-    /** Client ID público da SPA cadastrado no Authentik. */
+    @Schema(
+            description = "Client ID público da SPA cadastrado no Authentik",
+            example = "service-portal-spa")
     private String clientId;
 
-    /** Scopes que o frontend deve solicitar no /authorize. */
+    @Schema(
+            description = "Scopes solicitados no fluxo PKCE",
+            example = "[\"openid\",\"profile\",\"email\",\"groups\"]")
     private List<String> scopes;
 }

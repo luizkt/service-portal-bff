@@ -23,12 +23,17 @@
  */
 package com.serviceportal.bff.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
 @AllArgsConstructor
 public class LoginRequest {
+
+    @Schema(description = "Nome de usuário", example = "it")
     private String username;
+
+    @Schema(description = "Senha do usuário", example = "itadmin")
     private String password;
 }

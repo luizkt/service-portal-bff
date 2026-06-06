@@ -102,6 +102,16 @@ public class ManagerClient {
                 .block();
     }
 
+    public Map<String, Object> getFlowExample(String flowId, String version) {
+        return managerWebClient
+                .get()
+                .uri("/manager/flows/{flowId}/versions/{version}/examples", flowId, version)
+                .header(HttpHeaders.AUTHORIZATION, authHeader())
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .block();
+    }
+
     public Map<String, Object> createFlow(String yaml) {
         return managerWebClient
                 .post()

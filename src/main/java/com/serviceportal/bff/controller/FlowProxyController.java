@@ -89,6 +89,16 @@ public class FlowProxyController {
         }
     }
 
+    @GetMapping("/flows/{flowId}/versions/{version}/examples")
+    public ResponseEntity<Map<String, Object>> getFlowExample(
+            @PathVariable String flowId, @PathVariable String version) {
+        try {
+            return ResponseEntity.ok(managerClient.getFlowExample(flowId, version));
+        } catch (WebClientResponseException.NotFound e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @PostMapping(
             value = "/flows",
             consumes = {

@@ -27,6 +27,8 @@ extra["sbaVersion"] = "3.4.0"
 
 dependencies {
     implementation("de.codecentric:spring-boot-admin-starter-client:${property("sbaVersion")}")
+    implementation("io.micrometer:micrometer-tracing-bridge-otel")
+    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.boot:spring-boot-starter-actuator")

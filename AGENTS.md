@@ -1,197 +1,103 @@
 # AGENTS.md — service-portal-bff
 
-Guia de contexto para agentes de IA trabalhando neste componente.
+Índice para agentes de IA. Leia antes de abrir código. Método: `../docs/plans/PLAN-repo-indexing.md` (monorepo).
 
----
+<!-- index:meta
+repo: service-portal-bff
+tipo: spring-boot-api (BFF, proxy do frontend)
+fonte-de-verdade: build.gradle.kts, src/main/resources/application.yml, src/main/java/com/serviceportal/bff
+atualizado-em: 2026-11-07
+-->
 
-## Stack
+## Resumo
 
-| Item | Versão |
-|---|---|
-| Java | 21 (LTS) |
-| Spring Boot | 3.4.5 (LTS) |
-| Build | Gradle Kotlin DSL |
-| HTTP client | Spring WebFlux WebClient (Netty) |
-| Segurança | OAuth2 Resource Server (Authentik via JWKS) |
-| Porta | 8081 |
+Único ponto de entrada do frontend. Valida o JWT do Authentik, serve menu e UI schema (Server Driven UI, hardcoded, sem banco), faz proxy de CRUD para o `service-portal-manager` e de execução para o `generic-orchestrator`. O frontend nunca fala direto com o Manager nem com o Orchestrator.
 
----
+<!-- gen:size -->Tamanho: 25 arquivos .java em `src/main`, 14 em `src/test`.<!-- /gen:size -->
 
-## Responsabilidade
-
-O BFF é o **único ponto de entrada do frontend**. Ele:
-
-- Serve o menu e o UI schema (Server Driven UI) — hardcoded, sem banco
-- Faz proxy de CRUD de workflows para o `service-portal-manager`
-- Faz proxy de execução de fluxos para o `generic-orchestrator`
-- Valida o Bearer token Authentik em todos os endpoints protegidos
-- Expõe `GET /bff/auth/config` para o frontend obter os parâmetros do OAuth2/PKCE sem hardcoded
-
-O frontend **nunca** fala diretamente com o orquestrador ou o manager.
-
----
+Stack: Java 21, Spring Boot 3.4.5 (não atualizar), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.8.8. Porta `SERVER_PORT` (8081).
 
 ## Endpoints
 
-### Públicos (sem token)
-
-| Método | Path | Descrição |
+| Rota | Auth | Onde |
 |---|---|---|
-| `GET` | `/bff/health` | Health check simples |
-| `GET` | `/bff/auth/config` | Configuração OAuth2 para o frontend (issuer, client_id, scopes) |
-| `GET` | `/actuator/health` | Health check Spring Actuator |
-| `GET` | `/actuator/info` | Info da aplicação |
+| `GET /bff/health`, `GET /bff/auth/config`, `POST /bff/auth/login`, `/actuator/**`, `/swagger-ui/**`, `/v3/api-docs/**` | público | `SecurityConfig`; `controller/BffMenuController`, `AuthConfigController`, `LoginController` |
+| `GET /bff/menu`, `GET /bff/features/{featureId}/ui-schema` | JWT | `controller/BffMenuController` |
+| `/bff/flows...`: lista, detalhe, `/yaml`, `/examples`, CRUD, execução v1 e v2 (POST em executions e executions/v2) | JWT + `ADMIN` ou `WORKFLOWS` | `controller/FlowProxyController` |
+| `/bff/integrations...` (lista, versões, detalhe, CRUD) | `ADMIN` ou `WORKFLOWS`; escrita só `ADMIN` | `controller/IntegrationProxyController` |
+| `/bff/contracts...` | leitura `ADMIN`, `WORKFLOWS`, `RULES`; escrita `ADMIN`, `WORKFLOWS` | `controller/ContractProxyController` |
+| `/bff/validations...` | `ADMIN` ou `RULES` | `controller/ValidationProxyController` |
 
-### Protegidos (Bearer token Authentik obrigatório)
+## Fluxo
 
-| Método | Path | Destino | Descrição |
-|---|---|---|---|
-| `GET` | `/bff/menu` | BFF (hardcoded) | Menu da sidebar |
-| `GET` | `/bff/features/{featureId}/ui-schema` | BFF (hardcoded) | Schema de UI por feature |
-| `GET` | `/bff/flows` | Manager | Lista fluxos (paginado; `?page=&size=&sort=&status=`) |
-| `GET` | `/bff/flows/{flowId}/versions/{version}` | Manager | Metadados de um fluxo |
-| `GET` | `/bff/flows/{flowId}/versions/{version}/yaml` | Manager | YAML cru (`application/x-yaml`) |
-| `POST` | `/bff/flows` | Manager | Cria fluxo (body: YAML como texto) |
-| `PUT` | `/bff/flows/{flowId}/versions/{version}` | Manager | Atualiza fluxo |
-| `DELETE` | `/bff/flows/{flowId}/versions/{version}` | Manager | Soft-delete do fluxo |
-| `POST` | `/bff/flows/{flowId}/versions/{version}/executions` | Orquestrador | Executa um fluxo |
+1. `SecurityConfig.securityFilterChain` libera as rotas públicas e exige JWT no resto. `jwtDecoder` valida assinatura via JWKS, prazo e `iss` contra `bff.auth.allowed-issuers`.
+2. O claim `groups` vira authority sem prefixo (`jwtAuthenticationConverter`) e é checado por `@PreAuthorize` nos controllers.
+3. O controller chama `client/ManagerClient` (CRUD) ou `client/OrchestratorClient` (execução v1 e v2).
+4. Os clients usam o token server-to-server de `ManagerAuthService` ou `OrchestratorAuthService`. O token fica em memória e é renovado quando falta menos de 60 s para expirar.
+5. `WebClientResponseException.NotFound` vira 404 no `FlowProxyController`; 409 e 400 também são repassados na criação.
 
----
+O token do usuário nunca é repassado aos backends. `POST /bff/auth/login` autentica via Authentik Flow Executor em `client/AuthentikLoginService`.
 
-## Segurança — dois planos de auth
+## Mapa
 
-**Usuário final → BFF:** OAuth2/PKCE com Authentik. O BFF valida o Bearer token via JWKS (`AUTHENTIK_JWKS_URI`) e verifica o claim `iss` contra `AUTHENTIK_ISSUER_URI`. Configurado como OAuth2 Resource Server.
+Base: `src/main/java/com/serviceportal/bff/`.
 
-**BFF → Manager / Orquestrador:** server-to-server com JWT HS512. `ManagerAuthService` e `OrchestratorAuthService` fazem login em `POST /api/auth/tokens` de cada serviço e guardam o JWT em memória. Token é renovado automaticamente em expiração ou 401.
+| Caminho | Papel |
+|---|---|
+| `BffApplication` | Entry point |
+| `controller/*` | 7 controllers: menu e UI schema, auth config, login, proxies de flows, integrations, contracts e validations |
+| `client/ManagerClient` | CRUD no Manager. Integrations, contracts e validations usam helpers privados `*Resource` com `/manager/{resource}` |
+| `client/OrchestratorClient` | Execução em `/api/v1/...` e `/api/v2/...` |
+| `client/ManagerAuthService`, `client/OrchestratorAuthService` | Login `POST /api/auth/tokens` e cache do JWT |
+| `client/AuthentikLoginService` | Login de usuário via Flow Executor do Authentik |
+| `config/SecurityConfig` | Rotas públicas, decoder JWT, conversor de `groups`, CORS de `/bff/**` |
+| `config/WebClientConfig` | Beans `orchestratorWebClient` e `managerWebClient` |
+| `config/AuthProperties`, `BffProperties`, `ManagerProperties` | `bff.auth`, `bff.orchestrator`, `bff.manager` |
+| `config/OpenApiConfig` | Metadados do Swagger |
+| `dto/*` | DTOs de menu, UI schema, auth config e login |
 
-Os dois planos são independentes — o token do usuário final não é repassado ao manager/orquestrador.
+Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes em `src/test/java/com/serviceportal/bff/{client,config,controller}`.
 
----
+## Quero mudar... onde
 
-## Como rodar localmente
+| Mudança | Onde |
+|---|---|
+| Item de menu | `ALL_ITEMS` em `BffMenuController`, com `requiredGroup(...)` |
+| UI schema de uma feature | `switch` em `BffMenuController.uiSchema` (um `case` por `featureId`) |
+| Quem acessa um endpoint | `@PreAuthorize` no controller |
+| Rota pública | `requestMatchers(...)` em `SecurityConfig.securityFilterChain` |
+| Issuers aceitos | `bff.auth.allowed-issuers` no `application.yml`; validação em `SecurityConfig.jwtDecoder` |
+| CORS | `SecurityConfig.corsConfigurationSource` (hoje `*`) |
+| Nova rota de flow | método em `FlowProxyController` e em `ManagerClient` ou `OrchestratorClient` |
+| Novo recurso do Manager | novo controller `*ProxyController` e métodos `*Resource` em `ManagerClient` |
+| Parâmetros OAuth2 do frontend | `bff.auth.*` e `AuthConfigController` |
+| Login de usuário | `LoginController` e `AuthentikLoginService` (`bff.auth.authentik-base-url`) |
+| URL ou credencial dos backends | `bff.manager.*`, `bff.orchestrator.*`; beans em `WebClientConfig` |
+| Swagger | `OpenApiConfig`; paths em `springdoc` no `application.yml` |
 
-### Pré-requisitos
+## Integrações e config
 
-- Java 21 instalado
-- Docker + Docker Compose
-- Authentik rodando (ou `AUTHENTIK_JWKS_URI` apontando para um mock)
+- Manager: `MANAGER_URL` (`localhost:8082`), `MANAGER_USERNAME`, `MANAGER_PASSWORD` (`admin`). Rotas `/manager/...` e `/api/auth/tokens`.
+- Orchestrator: `ORCHESTRATOR_URL` (`localhost:8080`), `ORCHESTRATOR_USERNAME`, `ORCHESTRATOR_PASSWORD`.
+- Authentik: `AUTHENTIK_JWKS_URI` (URL interna, acessada pelo container), `AUTHENTIK_ISSUER_URI` (URL pública, igual ao `iss` do token), `AUTHENTIK_M2M_ISSUER_URI`, `AUTHENTIK_CLIENT_ID`, `AUTHENTIK_BASE_URL`.
+- SBA: `SPRING_BOOT_ADMIN_URL`. Tracing: `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Demais valores: `src/main/resources/application.yml`. Stack completa: `../docker-compose-service-portal.yml`.
 
-### Opção 1 — App no host, serviços via Docker
+## Comandos
 
 ```bash
-# Na raiz do repositório
-docker compose -f docker-compose-service-portal.yml up -d manager orchestrator redis rabbitmq kafka mongodb wiremock
-
-cd service-portal-bff
-./gradlew bootRun
+./gradlew bootRun                           # precisa de Manager, Orchestrator e Authentik no ar
+./gradlew test                              # unitários e IT
+./gradlew jacocoTestCoverageVerification    # gate >= 95% (classes em coverageIncludes no build.gradle.kts)
+./gradlew spotlessApply                     # antes de commit
 ```
 
-### Opção 2 — Stack completa containerizada
+## Armadilhas
 
-```bash
-# Na raiz do repositório
-docker compose -f docker-compose-service-portal.yml up -d
-```
-
----
-
-## Como testar
-
-```bash
-cd service-portal-bff
-
-# Testes unitários
-./gradlew test
-
-# Testes + relatório de cobertura
-./gradlew test jacocoTestReport
-# Relatório em: build/reports/jacoco/jacocoTestReport/html/index.html
-
-# Verificação de cobertura (gate ≥ 95% INSTRUCTION nas classes da feature)
-./gradlew jacocoTestCoverageVerification
-
-# Build sem testes
-./gradlew bootJar -x test
-
-# Build da imagem Docker
-docker build -t service-portal-bff:local .
-```
-
-### Gate de cobertura JaCoCo
-
-O gate cobre:
-- `config/SecurityConfig`, `AuthProperties`, `BffProperties`, `ManagerProperties`
-- `controller/AuthConfigController`, `FlowProxyController`
-- `client/ManagerClient`, `ManagerAuthService`, `OrchestratorClient`, `OrchestratorAuthService`
-- `dto/AuthConfigDto`
-
-Cobertura atual: **100% INSTRUCTION** (661/661).
-
----
-
-## Estrutura de pacotes relevante
-
-```
-src/main/java/com/serviceportal/bff/
-├── controller/
-│   ├── BffMenuController              # GET /bff/menu, /bff/features/{id}/ui-schema, /bff/health
-│   ├── FlowProxyController            # CRUD → Manager; execução → Orquestrador
-│   └── AuthConfigController           # GET /bff/auth/config (público)
-├── client/
-│   ├── ManagerClient                  # WebClient para o service-portal-manager (CRUD)
-│   ├── ManagerAuthService             # login server-to-server no Manager, JWT em memória
-│   ├── OrchestratorClient             # WebClient para o orquestrador (só execução)
-│   └── OrchestratorAuthService        # login server-to-server no Orquestrador, JWT em memória
-├── config/
-│   ├── SecurityConfig                 # OAuth2 Resource Server (Authentik JWKS) + CORS
-│   ├── WebClientConfig                # dois beans: orchestratorWebClient e managerWebClient
-│   ├── AuthProperties                 # @ConfigurationProperties("bff.auth")
-│   ├── BffProperties                  # @ConfigurationProperties("bff.orchestrator")
-│   └── ManagerProperties              # @ConfigurationProperties("bff.manager")
-└── dto/
-    ├── AuthConfigDto                  # {issuerUri, clientId, scopes}
-    ├── MenuItemDto                    # {id, label, icon, uiSchemaUrl}
-    └── UiSchemaDto                    # {featureId, type, title}
-```
-
----
-
-## Decisões de design
-
-**Proxy sem lógica de negócio.** O BFF repassa requisições ao Manager e ao Orquestrador sem transformar dados. A única lógica é mapear 404 do backend para 404 do BFF (em vez de 500).
-
-**Dois WebClients separados.** `WebClientConfig` cria `orchestratorWebClient` e `managerWebClient` como beans distintos, qualificados com `@Qualifier`. Timeouts e base URLs são independentes.
-
-**Server Driven UI hardcoded.** Menu e UI schema estão hardcoded no `BffMenuController`. Não há banco ou configuração externa. Para adicionar uma nova feature: adicionar um `case` no `switch` de `uiSchema` e um item na lista de `menu`.
-
-**Auth config público.** `GET /bff/auth/config` é explicitamente liberado em `SecurityConfig` para que o frontend possa configurar o fluxo OAuth2/PKCE sem ter o issuer/client_id hardcoded na imagem.
-
-**CORS aberto em dev.** `allowedOriginPatterns("*")` — restringir em produção conforme necessário.
-
----
-
-## Variáveis de ambiente
-
-| Variável | Padrão | Descrição |
-|---|---|---|
-| `SERVER_PORT` | `8081` | Porta do servidor |
-| `ORCHESTRATOR_URL` | `http://localhost:8080` | Base URL do generic-orchestrator |
-| `ORCHESTRATOR_USERNAME` | `admin` | Credencial server-to-server para o Orquestrador |
-| `ORCHESTRATOR_PASSWORD` | `admin` | Credencial server-to-server para o Orquestrador |
-| `MANAGER_URL` | `http://localhost:8082` | Base URL do service-portal-manager |
-| `MANAGER_USERNAME` | `admin` | Credencial server-to-server para o Manager |
-| `MANAGER_PASSWORD` | `admin` | Credencial server-to-server para o Manager |
-| `AUTHENTIK_JWKS_URI` | `http://localhost:9000/.../jwks/` | URL interna do JWKS do Authentik (Docker: hostname do container) |
-| `AUTHENTIK_ISSUER_URI` | `http://localhost:9000/.../` | URL pública do issuer — deve bater com o claim `iss` dos tokens |
-| `AUTHENTIK_CLIENT_ID` | `service-portal-spa` | Client ID público da SPA no Authentik |
-
-**Atenção JWKS vs Issuer:** `AUTHENTIK_JWKS_URI` é acessada pelo container BFF (DNS interno do Docker). `AUTHENTIK_ISSUER_URI` é comparada contra o campo `iss` do token, que é gerado com a URL pública do Authentik. Os dois valores podem ser diferentes quando o Authentik roda em container.
-
----
-
-## Restrições
-
-- Java 21 LTS, Spring Boot 3.4.5 LTS — não atualizar versões
-- Gradle com Kotlin DSL
-- Sem trocar WebClient por RestTemplate ou similares
-- Frontend fala **somente** com o BFF — nunca diretamente com o Orquestrador ou Manager
+- Sem atualizar Java 21 nem Spring Boot 3.4.5, sem RestTemplate.
+- `AUTHENTIK_JWKS_URI` e `AUTHENTIK_ISSUER_URI` diferem quando o Authentik roda em container. Misturar os dois quebra a validação do `iss`.
+- Chamadas com `uri(Function)` no `ManagerClient` precisam do atributo `WebClient.class.getName() + ".uriTemplate"`. Sem ele a métrica `http_client_requests_seconds` fica com `uri=none` e cardinalidade alta.
+- Rota nova em `/bff/**` exige `@PreAuthorize` explícito: `SecurityConfig` só exige JWT, não grupo.
+- Todo `.java` precisa do header de licença (`license-header.txt`, cópia do arquivo na raiz do monorepo: mantenha igual), senão o Spotless falha.
+- O gate JaCoCo cobre config, clients, `FlowProxyController` e os controllers de proxy e menu. Mude essas classes com teste.
+- Os dois planos de auth são independentes. Não repasse o JWT do usuário ao Manager ou Orchestrator.

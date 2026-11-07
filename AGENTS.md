@@ -98,6 +98,6 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - `AUTHENTIK_JWKS_URI` e `AUTHENTIK_ISSUER_URI` diferem quando o Authentik roda em container. Misturar os dois quebra a validação do `iss`.
 - Chamadas com `uri(Function)` no `ManagerClient` precisam do atributo `WebClient.class.getName() + ".uriTemplate"`. Sem ele a métrica `http_client_requests_seconds` fica com `uri=none` e cardinalidade alta.
 - Rota nova em `/bff/**` exige `@PreAuthorize` explícito: `SecurityConfig` só exige JWT, não grupo.
-- Todo `.java` precisa do header de licença (`../license-header.txt`), senão o Spotless falha.
+- Todo `.java` precisa do header de licença (`license-header.txt`, cópia do arquivo na raiz do monorepo: mantenha igual), senão o Spotless falha.
 - O gate JaCoCo cobre config, clients, `FlowProxyController` e os controllers de proxy e menu. Mude essas classes com teste.
 - Os dois planos de auth são independentes. Não repasse o JWT do usuário ao Manager ou Orchestrator.

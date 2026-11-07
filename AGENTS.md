@@ -1,6 +1,6 @@
 # AGENTS.md — service-portal-bff
 
-Índice para agentes de IA. Leia antes de abrir código. Método: `docs/plans/PLAN-repo-indexing.md` no monorepo.
+Índice para agentes de IA. Leia antes de abrir código. Método: `../docs/plans/PLAN-repo-indexing.md` (monorepo).
 
 <!-- index:meta
 repo: service-portal-bff

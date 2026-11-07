@@ -27,10 +27,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Build, Spotless, testes e gate JaCoCo
+      - name: Compilar e Spotless
         run: |
           chmod +x ./gradlew
-          ./gradlew build jacocoTestCoverageVerification --no-daemon
+          ./gradlew classes testClasses spotlessCheck bootJar --no-daemon
+
+      - name: Testes e gate JaCoCo
+        run: ./gradlew test jacocoTestCoverageVerification --no-daemon
 
       - name: Relatórios de teste (em caso de falha)
         if: failure()
@@ -39,6 +42,25 @@ jobs:
           name: test-reports
           path: build/reports/tests
           if-no-files-found: ignore
+
+  # Independente do job build: o Dockerfile compila dentro da imagem
+  # (gradle bootJar -x test) e nao consome nada produzido pelo CI.
+  docker-build:
+    name: imagem Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build da imagem (sem push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   agents-index:
     name: índice AGENTS.md
@@ -51,7 +73,7 @@ jobs:
 
   open-pr:
     name: abrir PR para main
-    needs: [build, agents-index]
+    needs: [build, docker-build, agents-index]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/')
     runs-on: ubuntu-latest
     timeout-minutes: 5

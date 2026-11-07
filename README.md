@@ -1,5 +1,7 @@
 # Service Portal BFF
 
+[![CI](https://github.com/luizkt/service-portal-bff/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/luizkt/service-portal-bff/actions/workflows/ci.yml?query=branch%3Amain)
+
 Backend for Frontend do Service Portal, baseado em Java 21 LTS + Spring Boot 3.4 LTS + Gradle.
 
 ## Visão Geral

@@ -40,6 +40,10 @@ ENV SERVER_PORT=8081 \
 
 EXPOSE 8081
 
+# Liveness não depende de Manager/Orchestrator/Authentik (o /actuator/health geral devolve 503 sem eles)
+HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
+    CMD curl -fsS http://localhost:${SERVER_PORT:-8081}/actuator/health/liveness || exit 1
+
 USER app
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

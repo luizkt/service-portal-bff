@@ -100,4 +100,5 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - Rota nova em `/bff/**` exige `@PreAuthorize` explícito: `SecurityConfig` só exige JWT, não grupo.
 - Todo `.java` precisa do header de licença (`license-header.txt`, cópia do arquivo na raiz do monorepo: mantenha igual), senão o Spotless falha.
 - O gate JaCoCo cobre config, clients, `FlowProxyController` e os controllers de proxy e menu. Mude essas classes com teste.
+- O `HEALTHCHECK` da imagem usa `/actuator/health/liveness` (`management.endpoint.health.probes.enabled=true`), não `/actuator/health`: o geral devolve 503 com Manager/Orchestrator fora e marcaria o container como unhealthy. `/actuator/**` é público no `SecurityConfig`.
 - Os dois planos de auth são independentes. Não repasse o JWT do usuário ao Manager ou Orchestrator.

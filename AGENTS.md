@@ -92,7 +92,7 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - Actuator: públicos `/actuator/health/**`, `/actuator/info`, `/actuator/prometheus`. O resto exige HTTP Basic do usuário com role `ACTUATOR`: `ACTUATOR_USERNAME` (default `actuator`) e `ACTUATOR_PASSWORD` (SEM default: vazio = usuário inexistente = 401 sempre). `heapdump` não é exposto; `health` mostra detalhes só `when-authorized`. O SBA lê esses endpoints pelas metadata `spring.boot.admin.client.instance.metadata.user.name`/`.password`, preenchidas com as mesmas variáveis.
 - Guard de segredos: `SECURITY_STRICT=true` ou profile `prod` faz o startup falhar se `MANAGER_PASSWORD`, `ORCHESTRATOR_PASSWORD` ou `SBA_PASSWORD` estiverem em `admin`; nos demais perfis só loga WARN com os nomes (nunca os valores). Senhas não ficam no `ENV` do Dockerfile.
 - CORS: `BFF_CORS_ALLOWED_ORIGINS` (lista separada por vírgula, default `http://localhost:5173`). Em produção/compose defina a origem real do frontend, senão o browser é bloqueado. Headers aceitos: `Authorization`, `Content-Type`, `Accept`.
-- SBA: `SPRING_BOOT_ADMIN_URL`, `SBA_USERNAME`/`SBA_PASSWORD`. Tracing: `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- SBA: `SPRING_BOOT_ADMIN_URL`, `SBA_USERNAME`/`SBA_PASSWORD`. Tracing: `OTEL_EXPORTER_OTLP_ENDPOINT`, `TRACING_SAMPLING_PROBABILITY` (1.0; baixe em produção). Log da aplicação: `LOG_LEVEL_APP` (DEBUG; use INFO em produção).
 - Demais valores: `src/main/resources/application.yml`. Stack completa: `../docker-compose-service-portal.yml`.
 
 ## Comandos

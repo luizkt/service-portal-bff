@@ -13,7 +13,7 @@ atualizado-em: 2026-11-07
 
 Único ponto de entrada do frontend. Valida o JWT do Authentik, serve menu e UI schema (Server Driven UI, hardcoded, sem banco), faz proxy de CRUD para o `service-portal-manager` e de execução para o `generic-orchestrator`. O frontend nunca fala direto com o Manager nem com o Orchestrator.
 
-<!-- gen:size -->Tamanho: 25 arquivos .java em `src/main`, 14 em `src/test`.<!-- /gen:size -->
+<!-- gen:size -->Tamanho: 27 arquivos .java em `src/main`, 17 em `src/test`.<!-- /gen:size -->
 
 Stack: Java 21, Spring Boot 3.4.5 (não atualizar), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.8.14. Porta `SERVER_PORT` (8081).
 
@@ -21,7 +21,8 @@ Stack: Java 21, Spring Boot 3.4.5 (não atualizar), Gradle Kotlin DSL, WebClient
 
 | Rota | Auth | Onde |
 |---|---|---|
-| `GET /bff/health`, `GET /bff/auth/config`, `POST /bff/auth/login`, `/actuator/**`, `/swagger-ui/**`, `/v3/api-docs/**` | público | `SecurityConfig`; `controller/BffMenuController`, `AuthConfigController`, `LoginController` |
+| `GET /bff/health`, `GET /bff/auth/config`, `POST /bff/auth/login`, `/actuator/health/**`, `/actuator/info`, `/actuator/prometheus`, `/swagger-ui/**`, `/v3/api-docs/**` | público | `SecurityConfig`; `controller/BffMenuController`, `AuthConfigController`, `LoginController` |
+| demais `/actuator/**` (`env`, `loggers`, `threaddump`, `metrics`, `caches`, `beans`) | HTTP Basic, role `ACTUATOR` (nunca Bearer) | `security/ActuatorSecurityConfig` |
 | `GET /bff/menu`, `GET /bff/features/{featureId}/ui-schema` | JWT | `controller/BffMenuController` |
 | `/bff/flows...`: lista, detalhe, `/yaml`, `/examples`, CRUD, execução v1 e v2 (POST em executions e executions/v2) | JWT + `ADMIN` ou `WORKFLOWS` | `controller/FlowProxyController` |
 | `/bff/integrations...` (lista, versões, detalhe, CRUD) | `ADMIN` ou `WORKFLOWS`; escrita só `ADMIN` | `controller/IntegrationProxyController` |
@@ -50,7 +51,9 @@ Base: `src/main/java/com/serviceportal/bff/`.
 | `client/OrchestratorClient` | Execução em `/api/v1/...` e `/api/v2/...` |
 | `client/ManagerAuthService`, `client/OrchestratorAuthService` | Login `POST /api/auth/tokens` e cache do JWT |
 | `client/AuthentikLoginService` | Login de usuário via Flow Executor do Authentik |
-| `config/SecurityConfig` | Rotas públicas, decoder JWT, conversor de `groups`, CORS de `/bff/**` |
+| `security/ActuatorSecurityConfig` | Chain Basic `@Order(1)` só de `/actuator/**`; usuário `ACTUATOR` em memória |
+| `security/SecurityDefaultsGuard` | Avisa (WARN) senhas default `admin`; falha em `prod`/`strict` |
+| `config/SecurityConfig` | Chain da API `@Order(2)`: rotas públicas, decoder JWT, conversor de `groups`, CORS de `/bff/**` |
 | `config/WebClientConfig` | Beans `orchestratorWebClient` e `managerWebClient` |
 | `config/AuthProperties`, `BffProperties`, `ManagerProperties` | `bff.auth`, `bff.orchestrator`, `bff.manager` |
 | `config/OpenApiConfig` | Metadados do Swagger |
@@ -65,9 +68,11 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 | Item de menu | `ALL_ITEMS` em `BffMenuController`, com `requiredGroup(...)` |
 | UI schema de uma feature | `switch` em `BffMenuController.uiSchema` (um `case` por `featureId`) |
 | Quem acessa um endpoint | `@PreAuthorize` no controller |
-| Rota pública | `requestMatchers(...)` em `SecurityConfig.securityFilterChain` |
+| Rota pública da API | `requestMatchers(...)` em `SecurityConfig.securityFilterChain` (`@Order(2)`) |
+| Segurança do actuator | `security/ActuatorSecurityConfig` |
+| Defaults inseguros | `security/SecurityDefaultsGuard` |
 | Issuers aceitos | `bff.auth.allowed-issuers` no `application.yml`; validação em `SecurityConfig.jwtDecoder` |
-| CORS | `SecurityConfig.corsConfigurationSource` (hoje `*`) |
+| CORS | `SecurityConfig.corsConfigurationSource`; origens em `bff.cors.allowed-origins` |
 | Nova rota de flow | método em `FlowProxyController` e em `ManagerClient` ou `OrchestratorClient` |
 | Novo recurso do Manager | novo controller `*ProxyController` e métodos `*Resource` em `ManagerClient` |
 | Parâmetros OAuth2 do frontend | `bff.auth.*` e `AuthConfigController` |
@@ -80,7 +85,10 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - Manager: `MANAGER_URL` (`localhost:8082`), `MANAGER_USERNAME`, `MANAGER_PASSWORD` (`admin`). Rotas `/manager/...` e `/api/auth/tokens`.
 - Orchestrator: `ORCHESTRATOR_URL` (`localhost:8080`), `ORCHESTRATOR_USERNAME`, `ORCHESTRATOR_PASSWORD`.
 - Authentik: `AUTHENTIK_JWKS_URI` (URL interna, acessada pelo container), `AUTHENTIK_ISSUER_URI` (URL pública, igual ao `iss` do token), `AUTHENTIK_M2M_ISSUER_URI`, `AUTHENTIK_CLIENT_ID`, `AUTHENTIK_BASE_URL`.
-- SBA: `SPRING_BOOT_ADMIN_URL`. Tracing: `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Actuator: públicos `/actuator/health/**`, `/actuator/info`, `/actuator/prometheus`. O resto exige HTTP Basic do usuário com role `ACTUATOR`: `ACTUATOR_USERNAME` (default `actuator`) e `ACTUATOR_PASSWORD` (SEM default: vazio = usuário inexistente = 401 sempre). `heapdump` não é exposto; `health` mostra detalhes só `when-authorized`. O SBA lê esses endpoints pelas metadata `spring.boot.admin.client.instance.metadata.user.name`/`.password`, preenchidas com as mesmas variáveis.
+- Guard de segredos: `SECURITY_STRICT=true` ou profile `prod` faz o startup falhar se `MANAGER_PASSWORD`, `ORCHESTRATOR_PASSWORD` ou `SBA_PASSWORD` estiverem em `admin`; nos demais perfis só loga WARN com os nomes (nunca os valores). Senhas não ficam no `ENV` do Dockerfile.
+- CORS: `BFF_CORS_ALLOWED_ORIGINS` (lista separada por vírgula, default `http://localhost:5173`). Em produção/compose defina a origem real do frontend, senão o browser é bloqueado. Headers aceitos: `Authorization`, `Content-Type`, `Accept`.
+- SBA: `SPRING_BOOT_ADMIN_URL`, `SBA_USERNAME`/`SBA_PASSWORD`. Tracing: `OTEL_EXPORTER_OTLP_ENDPOINT`.
 - Demais valores: `src/main/resources/application.yml`. Stack completa: `../docker-compose-service-portal.yml`.
 
 ## Comandos
@@ -95,6 +103,8 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 ## Armadilhas
 
 - Sem atualizar Java 21 nem Spring Boot 3.4.5, sem RestTemplate.
+- Segredos nunca em `ENV` do Dockerfile: injete em runtime. Não volte a liberar `/actuator/**` na chain da API nem exponha `heapdump`. O resource server JWT só roda na chain da API: um Bearer do Authentik não abre o actuator.
+- Testes que leem `/actuator/prometheus` com MockMvc precisam de `@AutoConfigureObservability` (o `@SpringBootTest` desliga o export de métricas).
 - `AUTHENTIK_JWKS_URI` e `AUTHENTIK_ISSUER_URI` diferem quando o Authentik roda em container. Misturar os dois quebra a validação do `iss`.
 - Chamadas com `uri(Function)` no `ManagerClient` precisam do atributo `WebClient.class.getName() + ".uriTemplate"`. Sem ele a métrica `http_client_requests_seconds` fica com `uri=none` e cardinalidade alta.
 - Rota nova em `/bff/**` exige `@PreAuthorize` explícito: `SecurityConfig` só exige JWT, não grupo.

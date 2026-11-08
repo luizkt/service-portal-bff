@@ -3,7 +3,7 @@ import org.springframework.boot.gradle.tasks.bundling.BootJar
 plugins {
     java
     jacoco
-    id("org.springframework.boot") version "4.0.9"
+    id("org.springframework.boot") version "4.1.2"
     id("io.spring.dependency-management") version "1.1.7"
     id("com.diffplug.spotless") version "8.11.0"
 }
@@ -23,10 +23,10 @@ configurations {
 
 repositories { mavenCentral() }
 
-extra["sbaVersion"] = "4.0.4"
+extra["sbaVersion"] = "4.1.5"
 
 dependencies {
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0")
     implementation("de.codecentric:spring-boot-admin-starter-client:${property("sbaVersion")}")
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")

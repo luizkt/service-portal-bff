@@ -23,7 +23,10 @@
  */
 package com.serviceportal.bff.client;
 
+import com.serviceportal.bff.config.ManagerProperties;
+import java.time.Duration;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -48,11 +51,32 @@ public class ManagerClient {
     private final WebClient managerWebClient;
     private final ManagerAuthService authService;
 
+    private final Duration deadline;
+
+    @Autowired
+    public ManagerClient(
+            @Qualifier("managerWebClient") WebClient managerWebClient,
+            ManagerAuthService authService,
+            ManagerProperties props) {
+        this.managerWebClient = withTokenRetry(managerWebClient, authService);
+        this.authService = authService;
+        this.deadline = HttpTimeouts.deadline(props.getTimeoutMs());
+    }
+
     public ManagerClient(
             @Qualifier("managerWebClient") WebClient managerWebClient,
             ManagerAuthService authService) {
-        this.managerWebClient = managerWebClient;
+        this.managerWebClient = withTokenRetry(managerWebClient, authService);
         this.authService = authService;
+        this.deadline = HttpTimeouts.deadline(new ManagerProperties().getTimeoutMs());
+    }
+
+    private static WebClient withTokenRetry(WebClient client, ManagerAuthService authService) {
+        return client.mutate()
+                .filter(
+                        UnauthorizedRetryFilter.create(
+                                authService::getToken, authService::invalidate))
+                .build();
     }
 
     private String authHeader() {
@@ -80,6 +104,7 @@ public class ManagerClient {
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(Object.class)
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -90,6 +115,7 @@ public class ManagerClient {
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -100,6 +126,7 @@ public class ManagerClient {
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(String.class)
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -110,6 +137,7 @@ public class ManagerClient {
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -122,6 +150,7 @@ public class ManagerClient {
                 .bodyValue(yaml)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -134,6 +163,7 @@ public class ManagerClient {
                 .bodyValue(yaml)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -144,6 +174,7 @@ public class ManagerClient {
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -173,6 +204,7 @@ public class ManagerClient {
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(Object.class)
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -183,6 +215,7 @@ public class ManagerClient {
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -201,6 +234,7 @@ public class ManagerClient {
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .bodyToMono(Object.class)
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -213,6 +247,7 @@ public class ManagerClient {
                 .bodyValue(body)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -226,6 +261,7 @@ public class ManagerClient {
                 .bodyValue(body)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 
@@ -236,6 +272,7 @@ public class ManagerClient {
                 .header(HttpHeaders.AUTHORIZATION, authHeader())
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 

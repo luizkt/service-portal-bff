@@ -23,8 +23,6 @@
  */
 package com.serviceportal.bff.client;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.serviceportal.bff.config.AuthProperties;
 import com.serviceportal.bff.dto.AuthentikTokenDto;
 import java.net.CookieManager;
@@ -44,6 +42,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Autentica usuários via Authentik Flow Executor (protocolo multi-step JSON), captura o

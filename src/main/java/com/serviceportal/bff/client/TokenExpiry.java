@@ -23,10 +23,10 @@
  */
 package com.serviceportal.bff.client;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.Base64;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Descobre até quando um token de backend vale. Ordem: claim {@code exp} do JWT (decodificado sem

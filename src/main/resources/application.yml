@@ -10,6 +10,12 @@ spring:
         url: ${SPRING_BOOT_ADMIN_URL:http://localhost:8085}
         username: ${SBA_USERNAME:admin}
         password: ${SBA_PASSWORD:admin}
+        instance:
+          # Credenciais que o SBA usa para ler os endpoints protegidos do actuator.
+          metadata:
+            user:
+              name: ${ACTUATOR_USERNAME:actuator}
+              password: ${ACTUATOR_PASSWORD:}
   security:
     oauth2:
       resourceserver:
@@ -21,6 +27,16 @@ server:
   port: ${SERVER_PORT:8081}
 
 bff:
+  security:
+    # Defaults de dev: SecurityDefaultsGuard avisa e falha com profile prod ou strict=true.
+    strict: ${SECURITY_STRICT:false}
+    # Sem senha default: vazio => sem usuario do actuator => endpoints protegidos respondem 401.
+    actuator:
+      username: ${ACTUATOR_USERNAME:actuator}
+      password: ${ACTUATOR_PASSWORD:}
+  cors:
+    # Origens permitidas (separadas por virgula). Em producao, informe a origem real do frontend.
+    allowed-origins: ${BFF_CORS_ALLOWED_ORIGINS:http://localhost:5173}
   orchestrator:
     # Apenas execução de fluxos — POST /api/orchestrate/{version}/{flowId}
     base-url: ${ORCHESTRATOR_URL:http://localhost:8080}
@@ -58,10 +74,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,threaddump,heapdump,loggers,env,beans,caches
+        include: health,info,metrics,prometheus,threaddump,loggers,env,beans,caches
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
       probes:
         enabled: true
   tracing:

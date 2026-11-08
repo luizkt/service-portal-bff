@@ -22,15 +22,14 @@ RUN apk add --no-cache curl \
 
 COPY --from=build --chown=app:app /app/build/libs/service-portal-bff.jar app.jar
 
+# Segredos (ORCHESTRATOR_PASSWORD, MANAGER_PASSWORD, SBA_PASSWORD, ACTUATOR_PASSWORD) NAO ficam na imagem: injete em runtime.
 # ── Orquestrador (apenas execução de fluxos) ──────────────────────────────────
 ENV ORCHESTRATOR_URL=http://localhost:8080 \
-    ORCHESTRATOR_USERNAME=admin \
-    ORCHESTRATOR_PASSWORD=admin
+    ORCHESTRATOR_USERNAME=admin
 
 # ── Service Portal Manager (CRUD de fluxos) ───────────────────────────────────
 ENV MANAGER_URL=http://localhost:8082 \
-    MANAGER_USERNAME=admin \
-    MANAGER_PASSWORD=admin
+    MANAGER_USERNAME=admin
 
 # ── Authentik (OAuth2 Resource Server) ────────────────────────────────────────
 # JWKS_URI: URL de onde o BFF busca as chaves públicas do Authentik.

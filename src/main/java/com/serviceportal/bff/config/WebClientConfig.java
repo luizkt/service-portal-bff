@@ -23,26 +23,44 @@
  */
 package com.serviceportal.bff.config;
 
+import io.netty.channel.ChannelOption;
+import java.time.Duration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
 
 @Configuration
-@EnableConfigurationProperties({BffProperties.class, ManagerProperties.class})
+@EnableConfigurationProperties({BffProperties.class, ManagerProperties.class, HttpProperties.class})
 public class WebClientConfig {
 
     @Bean
-    public WebClient orchestratorWebClient(WebClient.Builder builder, BffProperties props) {
-        return builder.baseUrl(props.getBaseUrl())
-                .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .build();
+    public WebClient orchestratorWebClient(
+            WebClient.Builder builder, BffProperties props, HttpProperties http) {
+        return build(builder, props.getBaseUrl(), http.getConnectTimeoutMs(), props.getTimeoutMs());
     }
 
     @Bean
-    public WebClient managerWebClient(WebClient.Builder builder, ManagerProperties props) {
-        return builder.baseUrl(props.getBaseUrl())
+    public WebClient managerWebClient(
+            WebClient.Builder builder, ManagerProperties props, HttpProperties http) {
+        return build(builder, props.getBaseUrl(), http.getConnectTimeoutMs(), props.getTimeoutMs());
+    }
+
+    /** Monta um WebClient com timeout de conexão e de resposta (Reactor Netty). */
+    public static WebClient build(
+            WebClient.Builder builder,
+            String baseUrl,
+            int connectTimeoutMs,
+            long responseTimeoutMs) {
+        HttpClient httpClient =
+                HttpClient.create()
+                        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs)
+                        .responseTimeout(Duration.ofMillis(responseTimeoutMs));
+        return builder.baseUrl(baseUrl)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }

@@ -23,10 +23,15 @@
  */
 package com.serviceportal.bff.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 
 @Data
 public class LoginResponse {
     private String token;
     private String type;
+
+    /** Validade do token em segundos, quando o backend informa. */
+    @JsonAlias("expires_in")
+    private Long expiresIn;
 }

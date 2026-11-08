@@ -28,6 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.serviceportal.bff.client.AuthentikLoginService;
+import com.serviceportal.bff.client.AuthentikUnavailableException;
 import com.serviceportal.bff.dto.AuthentikTokenDto;
 import com.serviceportal.bff.dto.LoginRequest;
 import java.util.Map;
@@ -90,5 +91,16 @@ class LoginControllerTest {
         ResponseEntity<?> resp = controller.login(new LoginRequest("user", "pass"));
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @Test
+    @DisplayName("POST /bff/auth/login retorna 503 quando o Authentik está indisponível")
+    void loginAuthentikIndisponivel() throws Exception {
+        when(loginService.login("user", "pass"))
+                .thenThrow(new AuthentikUnavailableException("Authentik indisponível"));
+
+        ResponseEntity<?> resp = controller.login(new LoginRequest("user", "pass"));
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
     }
 }

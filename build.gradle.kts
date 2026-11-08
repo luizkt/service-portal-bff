@@ -23,10 +23,10 @@ configurations {
 
 repositories { mavenCentral() }
 
-extra["sbaVersion"] = "3.4.0"
+extra["sbaVersion"] = "3.4.7"
 
 dependencies {
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.14")
     implementation("de.codecentric:spring-boot-admin-starter-client:${property("sbaVersion")}")
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")

@@ -42,11 +42,18 @@ bff:
     base-url: ${ORCHESTRATOR_URL:http://localhost:8080}
     username: ${ORCHESTRATOR_USERNAME:admin}
     password: ${ORCHESTRATOR_PASSWORD:admin}
+    # Timeout de resposta (ms); execução de fluxos pode demorar mais que o CRUD
+    timeout-ms: ${ORCHESTRATOR_TIMEOUT_MS:30000}
   manager:
     # CRUD de fluxos — service-portal-manager
     base-url: ${MANAGER_URL:http://localhost:8082}
     username: ${MANAGER_USERNAME:admin}
     password: ${MANAGER_PASSWORD:admin}
+    # Timeout de resposta (ms) do CRUD
+    timeout-ms: ${MANAGER_TIMEOUT_MS:10000}
+  http:
+    # Timeout de conexão TCP (ms) para todos os backends
+    connect-timeout-ms: ${BFF_HTTP_CONNECT_TIMEOUT_MS:2000}
   auth:
     # URL pública do issuer SPA (claim "iss" dos tokens PKCE do frontend)
     issuer-uri: ${AUTHENTIK_ISSUER_URI:http://localhost:9000/application/o/service-portal/}
@@ -71,6 +78,8 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
   tracing:
     sampling:
       probability: 1.0

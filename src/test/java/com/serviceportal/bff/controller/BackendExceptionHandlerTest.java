@@ -136,7 +136,8 @@ class BackendExceptionHandlerTest {
     @Test
     @DisplayName("422 do backend mantém o status")
     void unprocessable() throws Exception {
-        expect("/resp/422", 422, "Unprocessable Entity");
+        // Spring Framework 7 usa o nome atual do status 422 (RFC 9110).
+        expect("/resp/422", 422, "Unprocessable Content");
     }
 
     @Test

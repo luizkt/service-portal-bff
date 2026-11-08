@@ -2,8 +2,9 @@ spring:
   application:
     name: service-portal-bff
   jackson:
-    serialization:
-      write-dates-as-timestamps: false
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
   boot:
     admin:
       client:

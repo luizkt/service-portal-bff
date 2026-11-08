@@ -23,9 +23,6 @@
  */
 package com.serviceportal.bff.client;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.serviceportal.bff.config.AuthProperties;
 import com.serviceportal.bff.dto.AuthentikTokenDto;
 import java.io.IOException;
@@ -46,6 +43,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Autentica usuários via Authentik Flow Executor (protocolo multi-step JSON), captura o
@@ -71,11 +70,9 @@ public class AuthentikLoginService {
     public AuthentikTokenDto login(String username, String password) throws Exception {
         try {
             return doLogin(username, password);
-        } catch (JsonProcessingException e) {
-            // IOException subclass: resposta malformada não é indisponibilidade
-            throw e;
         } catch (IOException e) {
             // Timeout, conexão recusada, reset: o Authentik está fora, não é erro de credencial.
+            // (JacksonException do Jackson 3 não é IOException: resposta malformada propaga.)
             throw new AuthentikUnavailableException("Authentik indisponível", e);
         }
     }

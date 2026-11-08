@@ -30,7 +30,6 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.serviceportal.bff.config.AuthProperties;
 import com.serviceportal.bff.dto.AuthentikTokenDto;
 import java.io.IOException;
@@ -51,6 +50,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.BadCredentialsException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Testa o fluxo de login contra um MockWebServer que faz o papel do Authentik (flow executor,
@@ -573,7 +573,7 @@ class AuthentikLoginServiceTest {
         server.enqueue(new MockResponse().setResponseCode(200).setBody("{not json"));
 
         assertThatThrownBy(() -> service.login(USER, PASSWORD))
-                .isInstanceOf(com.fasterxml.jackson.core.JsonProcessingException.class);
+                .isInstanceOf(tools.jackson.core.JacksonException.class);
     }
 
     @Test

@@ -15,7 +15,7 @@ atualizado-em: 2026-11-08
 
 <!-- gen:size -->Tamanho: 34 arquivos .java em `src/main`, 24 em `src/test`.<!-- /gen:size -->
 
-Stack: Java 21, Spring Boot 3.5.16 (em migração para 4.1.x, ver `../docs/plans/PLAN-spring-boot-upgrade.md`; suba uma linha por vez), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.10.0. Porta `SERVER_PORT` (8081).
+Stack: Java 21, Spring Boot 4.0.9 (em migração para 4.1.x, ver `../docs/plans/PLAN-spring-boot-upgrade.md`; suba uma linha por vez), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 3.0.3. Porta `SERVER_PORT` (8081).
 
 ## Endpoints
 
@@ -108,7 +108,7 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 
 - Sem atualizar Java 21, sem RestTemplate. O Spring Boot sobe só pelos marcos do plano de upgrade.
 - Segredos nunca em `ENV` do Dockerfile: injete em runtime. Não volte a liberar `/actuator/**` na chain da API nem exponha `heapdump`. O resource server JWT só roda na chain da API: um Bearer do Authentik não abre o actuator.
-- Testes que leem `/actuator/prometheus` com MockMvc precisam de `@AutoConfigureObservability` (o `@SpringBootTest` desliga o export de métricas).
+- Testes que leem `/actuator/prometheus` com MockMvc precisam de `@AutoConfigureMetrics` (`org.springframework.boot.micrometer.metrics.test.autoconfigure`, starter `micrometer-metrics-test`) (o `@SpringBootTest` desliga o export de métricas).
 - `AUTHENTIK_JWKS_URI` e `AUTHENTIK_ISSUER_URI` diferem quando o Authentik roda em container. Misturar os dois quebra a validação do `iss`.
 - Chamadas com `uri(Function)` no `ManagerClient` precisam do atributo `WebClient.class.getName() + ".uriTemplate"`. Sem ele a métrica `http_client_requests_seconds` fica com `uri=none` e cardinalidade alta.
 - Rota nova em `/bff/**` exige `@PreAuthorize` explícito: `SecurityConfig` só exige JWT, não grupo.
@@ -120,3 +120,6 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - Todo `.block()` em client novo precisa de `.timeout(deadline, HttpTimeouts.onTimeout(deadline))`; sem prazo, um backend travado prende uma thread do Tomcat.
 - Erros de backend viram resposta HTTP em `BackendExceptionHandler` (`@RestControllerAdvice`): backend 4xx mantém o status; backend 5xx ou status inesperado vira 502; timeout (Netty, `TimeoutException`, `BackendTimeoutException`) vira 504; conexão recusada ou falha de rede vira 503. Corpo `{status, error, message}` sem o corpo do backend (vazaria detalhes). Os controllers ainda capturam NotFound/Conflict/BadRequest antes do advice; não remova esses `catch` sem revisar os testes de controller.
 - O retry de 401 vive só no `UnauthorizedRetryFilter`; client novo precisa instalá-lo (`withTokenRetry`) e `getToken()` bloqueante roda em `boundedElastic`, nunca no event loop do Netty.
+- Boot 4 / Jackson 3: `ObjectMapper` e `JsonNode` vêm de `tools.jackson.databind` (as anotações continuam em `com.fasterxml.jackson.annotation`); erros de JSON são `tools.jackson.core.JacksonException` (não checada). `spring.jackson.datatype.datetime.write-dates-as-timestamps` substitui o antigo `serialization.*`. Testes de MockMvc usam `org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc`.
+- Os testes do `AuthentikLoginService` usam MockWebServer 4.12 (`okhttp3.internal`); o `build.gradle.kts` força OkHttp 4.12 só nos classpaths de teste, porque o Boot 4 gerencia o OkHttp 5. Suba os dois juntos.
+- `WebClient.Builder` vem do starter `spring-boot-starter-webclient` no Boot 4 (o `webflux` sozinho não registra o bean).

@@ -13,7 +13,7 @@ atualizado-em: 2026-11-07
 
 Único ponto de entrada do frontend. Valida o JWT do Authentik, serve menu e UI schema (Server Driven UI, hardcoded, sem banco), faz proxy de CRUD para o `service-portal-manager` e de execução para o `generic-orchestrator`. O frontend nunca fala direto com o Manager nem com o Orchestrator.
 
-<!-- gen:size -->Tamanho: 27 arquivos .java em `src/main`, 16 em `src/test`.<!-- /gen:size -->
+<!-- gen:size -->Tamanho: 27 arquivos .java em `src/main`, 17 em `src/test`.<!-- /gen:size -->
 
 Stack: Java 21, Spring Boot 3.4.5 (não atualizar), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.8.14. Porta `SERVER_PORT` (8081).
 
@@ -72,7 +72,7 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 | Segurança do actuator | `security/ActuatorSecurityConfig` |
 | Defaults inseguros | `security/SecurityDefaultsGuard` |
 | Issuers aceitos | `bff.auth.allowed-issuers` no `application.yml`; validação em `SecurityConfig.jwtDecoder` |
-| CORS | `SecurityConfig.corsConfigurationSource` (hoje `*`) |
+| CORS | `SecurityConfig.corsConfigurationSource`; origens em `bff.cors.allowed-origins` |
 | Nova rota de flow | método em `FlowProxyController` e em `ManagerClient` ou `OrchestratorClient` |
 | Novo recurso do Manager | novo controller `*ProxyController` e métodos `*Resource` em `ManagerClient` |
 | Parâmetros OAuth2 do frontend | `bff.auth.*` e `AuthConfigController` |
@@ -87,6 +87,7 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - Authentik: `AUTHENTIK_JWKS_URI` (URL interna, acessada pelo container), `AUTHENTIK_ISSUER_URI` (URL pública, igual ao `iss` do token), `AUTHENTIK_M2M_ISSUER_URI`, `AUTHENTIK_CLIENT_ID`, `AUTHENTIK_BASE_URL`.
 - Actuator: públicos `/actuator/health/**`, `/actuator/info`, `/actuator/prometheus`. O resto exige HTTP Basic do usuário com role `ACTUATOR`: `ACTUATOR_USERNAME` (default `actuator`) e `ACTUATOR_PASSWORD` (SEM default: vazio = usuário inexistente = 401 sempre). `heapdump` não é exposto; `health` mostra detalhes só `when-authorized`. O SBA lê esses endpoints pelas metadata `spring.boot.admin.client.instance.metadata.user.name`/`.password`, preenchidas com as mesmas variáveis.
 - Guard de segredos: `SECURITY_STRICT=true` ou profile `prod` faz o startup falhar se `MANAGER_PASSWORD`, `ORCHESTRATOR_PASSWORD` ou `SBA_PASSWORD` estiverem em `admin`; nos demais perfis só loga WARN com os nomes (nunca os valores). Senhas não ficam no `ENV` do Dockerfile.
+- CORS: `BFF_CORS_ALLOWED_ORIGINS` (lista separada por vírgula, default `http://localhost:5173`). Em produção/compose defina a origem real do frontend, senão o browser é bloqueado. Headers aceitos: `Authorization`, `Content-Type`, `Accept`.
 - SBA: `SPRING_BOOT_ADMIN_URL`, `SBA_USERNAME`/`SBA_PASSWORD`. Tracing: `OTEL_EXPORTER_OTLP_ENDPOINT`.
 - Demais valores: `src/main/resources/application.yml`. Stack completa: `../docker-compose-service-portal.yml`.
 

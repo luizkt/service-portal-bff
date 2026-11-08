@@ -34,6 +34,9 @@ bff:
     actuator:
       username: ${ACTUATOR_USERNAME:actuator}
       password: ${ACTUATOR_PASSWORD:}
+  cors:
+    # Origens permitidas (separadas por virgula). Em producao, informe a origem real do frontend.
+    allowed-origins: ${BFF_CORS_ALLOWED_ORIGINS:http://localhost:5173}
   orchestrator:
     # Apenas execução de fluxos — POST /api/orchestrate/{version}/{flowId}
     base-url: ${ORCHESTRATOR_URL:http://localhost:8080}

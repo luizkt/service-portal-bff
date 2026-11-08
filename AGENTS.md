@@ -13,7 +13,7 @@ atualizado-em: 2026-11-07
 
 Único ponto de entrada do frontend. Valida o JWT do Authentik, serve menu e UI schema (Server Driven UI, hardcoded, sem banco), faz proxy de CRUD para o `service-portal-manager` e de execução para o `generic-orchestrator`. O frontend nunca fala direto com o Manager nem com o Orchestrator.
 
-<!-- gen:size -->Tamanho: 28 arquivos .java em `src/main`, 15 em `src/test`.<!-- /gen:size -->
+<!-- gen:size -->Tamanho: 29 arquivos .java em `src/main`, 17 em `src/test`.<!-- /gen:size -->
 
 Stack: Java 21, Spring Boot 3.4.5 (não atualizar), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.8.14. Porta `SERVER_PORT` (8081).
 
@@ -103,3 +103,4 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - O gate JaCoCo cobre config, clients, `FlowProxyController` e os controllers de proxy e menu. Mude essas classes com teste.
 - Os dois planos de auth são independentes. Não repasse o JWT do usuário ao Manager ou Orchestrator.
 - Todo `.block()` em client novo precisa de `.timeout(deadline, HttpTimeouts.onTimeout(deadline))`; sem prazo, um backend travado prende uma thread do Tomcat.
+- Erros de backend viram resposta HTTP em `BackendExceptionHandler` (`@RestControllerAdvice`): backend 4xx mantém o status; backend 5xx ou status inesperado vira 502; timeout (Netty, `TimeoutException`, `BackendTimeoutException`) vira 504; conexão recusada ou falha de rede vira 503. Corpo `{status, error, message}` sem o corpo do backend (vazaria detalhes). Os controllers ainda capturam NotFound/Conflict/BadRequest antes do advice; não remova esses `catch` sem revisar os testes de controller.

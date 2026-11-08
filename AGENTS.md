@@ -15,7 +15,7 @@ atualizado-em: 2026-11-08
 
 <!-- gen:size -->Tamanho: 34 arquivos .java em `src/main`, 24 em `src/test`.<!-- /gen:size -->
 
-Stack: Java 21, Spring Boot 3.4.13 (em migração para 4.1.x, ver `../docs/plans/PLAN-spring-boot-upgrade.md`; suba uma linha por vez), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.8.14. Porta `SERVER_PORT` (8081).
+Stack: Java 21, Spring Boot 3.5.16 (em migração para 4.1.x, ver `../docs/plans/PLAN-spring-boot-upgrade.md`; suba uma linha por vez), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.10.0. Porta `SERVER_PORT` (8081).
 
 ## Endpoints
 

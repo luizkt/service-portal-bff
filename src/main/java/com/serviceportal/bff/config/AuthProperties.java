@@ -23,6 +23,7 @@
  */
 package com.serviceportal.bff.config;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Data;
@@ -43,4 +44,14 @@ public class AuthProperties {
 
     /** URL base interna do Authentik — usada pelo BFF para chamar o Flow Executor server-side. */
     private String authentikBaseUrl = "http://localhost:9000";
+
+    /** Timeout de cada chamada HTTP do BFF ao Authentik durante o login (resposta, não conexão). */
+    private Duration requestTimeout = Duration.ofSeconds(10);
+
+    /**
+     * Redirect URI do provider SPA no Authentik. O BFF não segue o redirect: só lê o code do
+     * Location e repete o mesmo valor na troca de tokens, então precisa ser idêntico ao registrado
+     * no provider.
+     */
+    private String redirectUri = "http://localhost:5173/auth/callback";
 }

@@ -69,6 +69,10 @@ bff:
       - groups
     # URL interna do Authentik para o BFF autenticar usuários via Flow Executor
     authentik-base-url: ${AUTHENTIK_BASE_URL:http://localhost:9000}
+    # Timeout de cada chamada do login ao Authentik (formato Duration: 10s, 500ms)
+    request-timeout: ${AUTHENTIK_REQUEST_TIMEOUT:10s}
+    # Redirect URI registrado no provider SPA (o BFF só lê o code, não segue o redirect)
+    redirect-uri: ${AUTHENTIK_REDIRECT_URI:http://localhost:5173/auth/callback}
 
 management:
   endpoints:

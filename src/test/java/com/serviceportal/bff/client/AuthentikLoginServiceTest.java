@@ -339,7 +339,7 @@ class AuthentikLoginServiceTest {
     }
 
     @Test
-    @DisplayName("Senha errada (200 ak-stage-password): BadCredentials e warn com o usuário")
+    @DisplayName("Senha errada (200 ak-stage-password): BadCredentials e warn sem o usuário")
     void senhaErrada200() {
         server.enqueue(component("ak-stage-identification"));
         server.enqueue(component("ak-stage-password"));
@@ -348,7 +348,7 @@ class AuthentikLoginServiceTest {
         assertThatThrownBy(() -> service.login(USER, PASSWORD))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage(BAD);
-        assertThat(logLines()).anyMatch(l -> l.contains("Auth failed for 'alice'"));
+        assertThat(logLines()).anyMatch(l -> l.contains("Auth failed: password stage"));
     }
 
     @Test
@@ -363,25 +363,79 @@ class AuthentikLoginServiceTest {
         assertThatThrownBy(() -> service.login(USER, PASSWORD))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage(BAD);
-        assertThat(logLines())
-                .anyMatch(l -> l.contains("Auth failed for 'alice' after password 302"));
+        assertThat(logLines()).anyMatch(l -> l.contains("Auth failed after password 302"));
     }
 
     @Test
-    @DisplayName("achado: erro 4xx/5xx do Authentik no POST da senha vira BadCredentials (401)")
-    void statusInesperadoNaSenhaViraCredenciaisInvalidas() {
-        // DOCUMENTA O COMPORTAMENTO ATUAL: um 500 do Authentik é reportado como 401 ao usuário.
+    @DisplayName("5xx do Authentik no POST da senha vira AuthentikUnavailableException (503)")
+    void erro5xxNaSenhaViraIndisponivel() {
         server.enqueue(component("ak-stage-identification"));
         server.enqueue(component("ak-stage-password"));
         server.enqueue(new MockResponse().setResponseCode(500).setBody("boom"));
 
         assertThatThrownBy(() -> service.login(USER, PASSWORD))
-                .isInstanceOf(BadCredentialsException.class)
-                .hasMessage(BAD);
+                .isInstanceOf(AuthentikUnavailableException.class)
+                .hasMessageContaining("500");
     }
 
     @Test
-    @DisplayName("achado: 4xx no POST da senha também vira BadCredentials")
+    @DisplayName("5xx no identification, no authorize e no token também viram indisponível")
+    void erro5xxEmOutrosPassos() {
+        server.enqueue(component("ak-stage-identification"));
+        server.enqueue(new MockResponse().setResponseCode(502));
+        assertThatThrownBy(() -> service.login(USER, PASSWORD))
+                .isInstanceOf(AuthentikUnavailableException.class)
+                .hasMessageContaining("identification");
+
+        enqueueLoginOk();
+        server.enqueue(new MockResponse().setResponseCode(503));
+        assertThatThrownBy(() -> service.login(USER, PASSWORD))
+                .isInstanceOf(AuthentikUnavailableException.class)
+                .hasMessageContaining("authorize");
+
+        enqueueLoginOk();
+        server.enqueue(redirect(REDIRECT_URI + "?code=C"));
+        server.enqueue(new MockResponse().setResponseCode(500));
+        assertThatThrownBy(() -> service.login(USER, PASSWORD))
+                .isInstanceOf(AuthentikUnavailableException.class)
+                .hasMessageContaining("token");
+    }
+
+    @Test
+    @DisplayName("Authentik que não responde dentro do request-timeout vira indisponível")
+    void timeoutDeRequisicao() {
+        server.enqueue(
+                component("ak-stage-identification")
+                        .setBodyDelay(2, java.util.concurrent.TimeUnit.SECONDS));
+        service = serviceWith(props -> props.setRequestTimeout(java.time.Duration.ofMillis(200)));
+
+        assertThatThrownBy(() -> service.login(USER, PASSWORD))
+                .isInstanceOf(AuthentikUnavailableException.class)
+                .hasCauseInstanceOf(java.net.http.HttpTimeoutException.class);
+    }
+
+    @Test
+    @DisplayName("redirect-uri configurado é usado no /authorize e na troca de tokens")
+    void redirectUriConfiguravel() throws Exception {
+        String custom = "https://portal.example.com/auth/callback";
+        service = serviceWith(props -> props.setRedirectUri(custom));
+        enqueueLoginOk();
+        server.enqueue(redirect(custom + "?code=C"));
+        server.enqueue(tokens());
+
+        service.login(USER, PASSWORD);
+
+        drain(5);
+        String authorize = server.takeRequest().getPath();
+        String token = server.takeRequest().getBody().readUtf8();
+        assertThat(URLDecoder.decode(authorize, StandardCharsets.UTF_8))
+                .contains("redirect_uri=" + custom);
+        assertThat(URLDecoder.decode(token, StandardCharsets.UTF_8))
+                .contains("redirect_uri=" + custom);
+    }
+
+    @Test
+    @DisplayName("4xx no POST da senha continua virando BadCredentials")
     void status400NaSenha() {
         server.enqueue(component("ak-stage-identification"));
         server.enqueue(component("ak-stage-password"));
@@ -452,8 +506,7 @@ class AuthentikLoginServiceTest {
         assertThatThrownBy(() -> service.login(USER, PASSWORD))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Authorization step failed (status 400)");
-        assertThat(logLines())
-                .anyMatch(l -> l.contains("Authorize step returned 400 for user 'alice'"));
+        assertThat(logLines()).anyMatch(l -> l.contains("Authorize step returned 400"));
     }
 
     @Test
@@ -524,11 +577,13 @@ class AuthentikLoginServiceTest {
     }
 
     @Test
-    @DisplayName("Authentik indisponível (conexão recusada): IOException propaga")
+    @DisplayName("Authentik indisponível (conexão recusada) vira AuthentikUnavailableException")
     void conexaoRecusada() throws IOException {
         server.shutdown();
 
-        assertThatThrownBy(() -> service.login(USER, PASSWORD)).isInstanceOf(IOException.class);
+        assertThatThrownBy(() -> service.login(USER, PASSWORD))
+                .isInstanceOf(AuthentikUnavailableException.class)
+                .hasCauseInstanceOf(IOException.class);
     }
 
     // ── logs ────────────────────────────────────────────────────────────────────
@@ -552,18 +607,18 @@ class AuthentikLoginServiceTest {
         server.enqueue(component("ak-stage-password"));
         server.enqueue(new MockResponse().setResponseCode(500));
         assertThatThrownBy(() -> service.login(USER, PASSWORD))
-                .isInstanceOf(BadCredentialsException.class);
+                .isInstanceOf(AuthentikUnavailableException.class);
         // authorize falha
         enqueueLoginOk();
         server.enqueue(new MockResponse().setResponseCode(500));
         assertThatThrownBy(() -> service.login(USER, PASSWORD))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(AuthentikUnavailableException.class);
         // token falha
         enqueueLoginOk();
         server.enqueue(redirect(REDIRECT_URI + "?code=C"));
         server.enqueue(new MockResponse().setResponseCode(500).setBody("err"));
         assertThatThrownBy(() -> service.login(USER, PASSWORD))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(AuthentikUnavailableException.class);
 
         assertThat(logs.list).isNotEmpty();
         for (ILoggingEvent e : logs.list) {
@@ -573,20 +628,27 @@ class AuthentikLoginServiceTest {
     }
 
     @Test
-    @DisplayName(
-            "achado: o username é escrito em logs (debug no POST da senha, warn/error nas falhas)")
-    void usernameApareceNosLogs() throws Exception {
-        // DOCUMENTA O COMPORTAMENTO ATUAL (sem alterar): username em texto puro nos logs.
+    @DisplayName("o username não é escrito em nenhum log, nem no sucesso nem nas falhas")
+    void usernameNuncaNosLogs() throws Exception {
         enqueueLoginOk();
         server.enqueue(redirect(REDIRECT_URI + "?code=C"));
         server.enqueue(tokens());
         service.login(USER, PASSWORD);
 
-        assertThat(logs.list)
-                .anyMatch(
-                        e ->
-                                e.getLevel() == Level.DEBUG
-                                        && e.getFormattedMessage()
-                                                .equals("Password POST for 'alice': status=302"));
+        server.enqueue(component("ak-stage-identification"));
+        server.enqueue(component("ak-stage-password"));
+        server.enqueue(component("ak-stage-password"));
+        assertThatThrownBy(() -> service.login(USER, PASSWORD))
+                .isInstanceOf(BadCredentialsException.class);
+
+        assertThat(logs.list).noneMatch(e -> e.getFormattedMessage().contains(USER));
+    }
+
+    private AuthentikLoginService serviceWith(java.util.function.Consumer<AuthProperties> c) {
+        AuthProperties props = new AuthProperties();
+        props.setClientId("portal-spa");
+        props.setAuthentikBaseUrl(base());
+        c.accept(props);
+        return new AuthentikLoginService(props, new ObjectMapper());
     }
 }

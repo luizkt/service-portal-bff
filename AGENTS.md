@@ -15,7 +15,7 @@ atualizado-em: 2026-11-08
 
 <!-- gen:size -->Tamanho: 34 arquivos .java em `src/main`, 24 em `src/test`.<!-- /gen:size -->
 
-Stack: Java 21, Spring Boot 3.4.5 (não atualizar), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.8.14. Porta `SERVER_PORT` (8081).
+Stack: Java 21, Spring Boot 3.4.13 (em migração para 4.1.x, ver `../docs/plans/PLAN-spring-boot-upgrade.md`; suba uma linha por vez), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.8.14. Porta `SERVER_PORT` (8081).
 
 ## Endpoints
 
@@ -106,7 +106,7 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 
 ## Armadilhas
 
-- Sem atualizar Java 21 nem Spring Boot 3.4.5, sem RestTemplate.
+- Sem atualizar Java 21, sem RestTemplate. O Spring Boot sobe só pelos marcos do plano de upgrade.
 - Segredos nunca em `ENV` do Dockerfile: injete em runtime. Não volte a liberar `/actuator/**` na chain da API nem exponha `heapdump`. O resource server JWT só roda na chain da API: um Bearer do Authentik não abre o actuator.
 - Testes que leem `/actuator/prometheus` com MockMvc precisam de `@AutoConfigureObservability` (o `@SpringBootTest` desliga o export de métricas).
 - `AUTHENTIK_JWKS_URI` e `AUTHENTIK_ISSUER_URI` diferem quando o Authentik roda em container. Misturar os dois quebra a validação do `iss`.

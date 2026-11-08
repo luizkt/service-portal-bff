@@ -82,6 +82,8 @@ val coverageIncludes = listOf(
     // S4 — telas de gerenciamento: proxies de integrations/contracts/validations + menu
     "com/serviceportal/bff/controller/BackendExceptionHandler.class",
     "com/serviceportal/bff/client/HttpTimeouts.class",
+    "com/serviceportal/bff/client/TokenExpiry.class",
+    "com/serviceportal/bff/client/UnauthorizedRetryFilter.class",
     "com/serviceportal/bff/client/BackendTimeoutException.class",
     "com/serviceportal/bff/config/HttpProperties.class",
     "com/serviceportal/bff/config/WebClientConfig.class",

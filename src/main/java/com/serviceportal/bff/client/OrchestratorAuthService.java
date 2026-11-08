@@ -59,6 +59,16 @@ public class OrchestratorAuthService {
         return token;
     }
 
+    /**
+     * Descarta o token em cache se ele ainda for o que falhou (outra thread pode já ter renovado).
+     */
+    public synchronized void invalidate(String failedToken) {
+        if (failedToken != null && failedToken.equals(token)) {
+            log.debug("Token invalidado após 401 do backend");
+            tokenExpiry = Instant.EPOCH;
+        }
+    }
+
     private void refreshToken() {
         log.debug("Renovando token do orquestrador");
         LoginResponse response =
@@ -74,7 +84,8 @@ public class OrchestratorAuthService {
             throw new IllegalStateException("Orquestrador retornou login sem token");
         }
         this.token = response.getToken();
-        this.tokenExpiry = Instant.now().plusSeconds(3600);
+        this.tokenExpiry =
+                TokenExpiry.resolve(response.getToken(), response.getExpiresIn(), Instant.now());
         log.debug("Token do orquestrador renovado com sucesso");
     }
 }

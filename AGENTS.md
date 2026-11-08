@@ -13,7 +13,7 @@ atualizado-em: 2026-11-07
 
 Único ponto de entrada do frontend. Valida o JWT do Authentik, serve menu e UI schema (Server Driven UI, hardcoded, sem banco), faz proxy de CRUD para o `service-portal-manager` e de execução para o `generic-orchestrator`. O frontend nunca fala direto com o Manager nem com o Orchestrator.
 
-<!-- gen:size -->Tamanho: 29 arquivos .java em `src/main`, 17 em `src/test`.<!-- /gen:size -->
+<!-- gen:size -->Tamanho: 31 arquivos .java em `src/main`, 19 em `src/test`.<!-- /gen:size -->
 
 Stack: Java 21, Spring Boot 3.4.5 (não atualizar), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.8.14. Porta `SERVER_PORT` (8081).
 
@@ -80,6 +80,7 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - Manager: `MANAGER_URL` (`localhost:8082`), `MANAGER_USERNAME`, `MANAGER_PASSWORD` (`admin`). Rotas `/manager/...` e `/api/auth/tokens`.
 - Orchestrator: `ORCHESTRATOR_URL` (`localhost:8080`), `ORCHESTRATOR_USERNAME`, `ORCHESTRATOR_PASSWORD`.
 - Timeouts HTTP: `bff.http.connect-timeout-ms` (`BFF_HTTP_CONNECT_TIMEOUT_MS`, 2000), `bff.manager.timeout-ms` (`MANAGER_TIMEOUT_MS`, 10000) e `bff.orchestrator.timeout-ms` (`ORCHESTRATOR_TIMEOUT_MS`, 30000, execução de fluxo é mais lenta). Aplicados em `WebClientConfig` (Reactor Netty); todo `.block()` dos clients tem prazo (timeout + 2 s) via `HttpTimeouts`.
+- Tokens de serviço (`ManagerAuthService`, `OrchestratorAuthService`): validade vem do claim `exp` do JWT (sem verificar assinatura, só dirige o cache), senão de `expiresIn`/`expires_in` do login, senão 3600 s; renova 60 s antes. `invalidate(token)` descarta o cache; `UnauthorizedRetryFilter` (instalado nos clients) repete a chamada uma vez com token novo ao receber 401.
 - Authentik: `AUTHENTIK_JWKS_URI` (URL interna, acessada pelo container), `AUTHENTIK_ISSUER_URI` (URL pública, igual ao `iss` do token), `AUTHENTIK_M2M_ISSUER_URI`, `AUTHENTIK_CLIENT_ID`, `AUTHENTIK_BASE_URL`.
 - SBA: `SPRING_BOOT_ADMIN_URL`. Tracing: `OTEL_EXPORTER_OTLP_ENDPOINT`.
 - Demais valores: `src/main/resources/application.yml`. Stack completa: `../docker-compose-service-portal.yml`.
@@ -104,3 +105,4 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - Os dois planos de auth são independentes. Não repasse o JWT do usuário ao Manager ou Orchestrator.
 - Todo `.block()` em client novo precisa de `.timeout(deadline, HttpTimeouts.onTimeout(deadline))`; sem prazo, um backend travado prende uma thread do Tomcat.
 - Erros de backend viram resposta HTTP em `BackendExceptionHandler` (`@RestControllerAdvice`): backend 4xx mantém o status; backend 5xx ou status inesperado vira 502; timeout (Netty, `TimeoutException`, `BackendTimeoutException`) vira 504; conexão recusada ou falha de rede vira 503. Corpo `{status, error, message}` sem o corpo do backend (vazaria detalhes). Os controllers ainda capturam NotFound/Conflict/BadRequest antes do advice; não remova esses `catch` sem revisar os testes de controller.
+- O retry de 401 vive só no `UnauthorizedRetryFilter`; client novo precisa instalá-lo (`withTokenRetry`) e `getToken()` bloqueante roda em `boundedElastic`, nunca no event loop do Netty.

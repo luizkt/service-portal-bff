@@ -58,7 +58,7 @@ public class ManagerClient {
             @Qualifier("managerWebClient") WebClient managerWebClient,
             ManagerAuthService authService,
             ManagerProperties props) {
-        this.managerWebClient = managerWebClient;
+        this.managerWebClient = withTokenRetry(managerWebClient, authService);
         this.authService = authService;
         this.deadline = HttpTimeouts.deadline(props.getTimeoutMs());
     }
@@ -66,9 +66,17 @@ public class ManagerClient {
     public ManagerClient(
             @Qualifier("managerWebClient") WebClient managerWebClient,
             ManagerAuthService authService) {
-        this.managerWebClient = managerWebClient;
+        this.managerWebClient = withTokenRetry(managerWebClient, authService);
         this.authService = authService;
         this.deadline = HttpTimeouts.deadline(new ManagerProperties().getTimeoutMs());
+    }
+
+    private static WebClient withTokenRetry(WebClient client, ManagerAuthService authService) {
+        return client.mutate()
+                .filter(
+                        UnauthorizedRetryFilter.create(
+                                authService::getToken, authService::invalidate))
+                .build();
     }
 
     private String authHeader() {

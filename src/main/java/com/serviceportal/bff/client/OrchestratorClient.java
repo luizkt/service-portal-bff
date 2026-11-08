@@ -50,7 +50,7 @@ public class OrchestratorClient {
             @Qualifier("orchestratorWebClient") WebClient orchestratorWebClient,
             OrchestratorAuthService authService,
             BffProperties props) {
-        this.orchestratorWebClient = orchestratorWebClient;
+        this.orchestratorWebClient = withTokenRetry(orchestratorWebClient, authService);
         this.authService = authService;
         this.deadline = HttpTimeouts.deadline(props.getTimeoutMs());
     }
@@ -58,9 +58,17 @@ public class OrchestratorClient {
     public OrchestratorClient(
             @Qualifier("orchestratorWebClient") WebClient orchestratorWebClient,
             OrchestratorAuthService authService) {
-        this.orchestratorWebClient = orchestratorWebClient;
+        this.orchestratorWebClient = withTokenRetry(orchestratorWebClient, authService);
         this.authService = authService;
         this.deadline = HttpTimeouts.deadline(new BffProperties().getTimeoutMs());
+    }
+
+    private static WebClient withTokenRetry(WebClient client, OrchestratorAuthService authService) {
+        return client.mutate()
+                .filter(
+                        UnauthorizedRetryFilter.create(
+                                authService::getToken, authService::invalidate))
+                .build();
     }
 
     private String authHeader() {

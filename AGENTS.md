@@ -13,7 +13,7 @@ atualizado-em: 2026-11-07
 
 Único ponto de entrada do frontend. Valida o JWT do Authentik, serve menu e UI schema (Server Driven UI, hardcoded, sem banco), faz proxy de CRUD para o `service-portal-manager` e de execução para o `generic-orchestrator`. O frontend nunca fala direto com o Manager nem com o Orchestrator.
 
-<!-- gen:size -->Tamanho: 31 arquivos .java em `src/main`, 19 em `src/test`.<!-- /gen:size -->
+<!-- gen:size -->Tamanho: 31 arquivos .java em `src/main`, 20 em `src/test`.<!-- /gen:size -->
 
 Stack: Java 21, Spring Boot 3.4.5 (não atualizar), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 2.8.14. Porta `SERVER_PORT` (8081).
 
@@ -103,7 +103,8 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - Chamadas com `uri(Function)` no `ManagerClient` precisam do atributo `WebClient.class.getName() + ".uriTemplate"`. Sem ele a métrica `http_client_requests_seconds` fica com `uri=none` e cardinalidade alta.
 - Rota nova em `/bff/**` exige `@PreAuthorize` explícito: `SecurityConfig` só exige JWT, não grupo.
 - Todo `.java` precisa do header de licença (`license-header.txt`, cópia do arquivo na raiz do monorepo: mantenha igual), senão o Spotless falha.
-- O gate JaCoCo cobre config, clients, `FlowProxyController` e os controllers de proxy e menu. Mude essas classes com teste.
+- O gate JaCoCo cobre config, clients, `FlowProxyController`, os controllers de proxy e menu, `AuthentikLoginService` e `LoginController`. Mude essas classes com teste.
+- `AuthentikLoginService` usa `java.net.http.HttpClient` (não WebClient) e segue os redirects do flow executor manualmente; `AuthentikLoginServiceTest` roda contra MockWebServer e fixa o comportamento atual: status 4xx/5xx no POST da senha vira `BadCredentialsException` (401), o username aparece nos logs e o redirect URI do PKCE é fixo. A senha nunca pode ir para log (teste dedicado).
 - O `HEALTHCHECK` da imagem usa `/actuator/health/liveness` (`management.endpoint.health.probes.enabled=true`), não `/actuator/health`: o geral devolve 503 com Manager/Orchestrator fora e marcaria o container como unhealthy. `/actuator/**` é público no `SecurityConfig`.
 - Os dois planos de auth são independentes. Não repasse o JWT do usuário ao Manager ou Orchestrator.
 - Todo `.block()` em client novo precisa de `.timeout(deadline, HttpTimeouts.onTimeout(deadline))`; sem prazo, um backend travado prende uma thread do Tomcat.

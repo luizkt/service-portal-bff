@@ -49,10 +49,12 @@ Base: `src/main/java/com/serviceportal/bff/`.
 | `client/ManagerClient` | CRUD no Manager. Integrations, contracts e validations usam helpers privados `*Resource` com `/manager/{resource}` |
 | `client/OrchestratorClient` | Execução em `/api/v1/...` e `/api/v2/...` |
 | `client/ManagerAuthService`, `client/OrchestratorAuthService` | Login `POST /api/auth/tokens` e cache do JWT |
+| `client/HttpTimeouts`, `client/BackendTimeoutException`, `client/TokenExpiry`, `client/UnauthorizedRetryFilter` | Prazo do `.block()`, validade do token e retry de 401 |
+| `controller/BackendExceptionHandler` | `@RestControllerAdvice`: 4xx igual, 5xx 502, timeout 504, conexão 503 |
 | `client/AuthentikLoginService` | Login de usuário via Flow Executor do Authentik |
 | `config/SecurityConfig` | Rotas públicas, decoder JWT, conversor de `groups`, CORS de `/bff/**` |
 | `config/WebClientConfig` | Beans `orchestratorWebClient` e `managerWebClient` |
-| `config/AuthProperties`, `BffProperties`, `ManagerProperties` | `bff.auth`, `bff.orchestrator`, `bff.manager` |
+| `config/AuthProperties`, `BffProperties`, `ManagerProperties`, `HttpProperties` | `bff.auth`, `bff.orchestrator`, `bff.manager`, `bff.http` |
 | `config/OpenApiConfig` | Metadados do Swagger |
 | `dto/*` | DTOs de menu, UI schema, auth config e login |
 

@@ -23,7 +23,10 @@
  */
 package com.serviceportal.bff.client;
 
+import com.serviceportal.bff.config.BffProperties;
+import java.time.Duration;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -40,11 +43,24 @@ public class OrchestratorClient {
     private final WebClient orchestratorWebClient;
     private final OrchestratorAuthService authService;
 
+    private final Duration deadline;
+
+    @Autowired
+    public OrchestratorClient(
+            @Qualifier("orchestratorWebClient") WebClient orchestratorWebClient,
+            OrchestratorAuthService authService,
+            BffProperties props) {
+        this.orchestratorWebClient = orchestratorWebClient;
+        this.authService = authService;
+        this.deadline = HttpTimeouts.deadline(props.getTimeoutMs());
+    }
+
     public OrchestratorClient(
             @Qualifier("orchestratorWebClient") WebClient orchestratorWebClient,
             OrchestratorAuthService authService) {
         this.orchestratorWebClient = orchestratorWebClient;
         this.authService = authService;
+        this.deadline = HttpTimeouts.deadline(new BffProperties().getTimeoutMs());
     }
 
     private String authHeader() {
@@ -71,6 +87,7 @@ public class OrchestratorClient {
                 .bodyValue(payload)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                 .block();
     }
 }

@@ -32,4 +32,7 @@ public class BffProperties {
     private String baseUrl;
     private String username;
     private String password;
+
+    /** Timeout de resposta (ms) das chamadas a este backend. */
+    private long timeoutMs = 30000;
 }

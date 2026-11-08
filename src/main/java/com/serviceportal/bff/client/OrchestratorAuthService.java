@@ -26,6 +26,7 @@ package com.serviceportal.bff.client;
 import com.serviceportal.bff.config.BffProperties;
 import com.serviceportal.bff.dto.LoginRequest;
 import com.serviceportal.bff.dto.LoginResponse;
+import java.time.Duration;
 import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -41,12 +42,14 @@ public class OrchestratorAuthService {
 
     private String token;
     private Instant tokenExpiry = Instant.EPOCH;
+    private final Duration deadline;
 
     public OrchestratorAuthService(
             @Qualifier("orchestratorWebClient") WebClient orchestratorWebClient,
             BffProperties props) {
         this.orchestratorWebClient = orchestratorWebClient;
         this.props = props;
+        this.deadline = HttpTimeouts.deadline(props.getTimeoutMs());
     }
 
     public synchronized String getToken() {
@@ -65,6 +68,7 @@ public class OrchestratorAuthService {
                         .bodyValue(new LoginRequest(props.getUsername(), props.getPassword()))
                         .retrieve()
                         .bodyToMono(LoginResponse.class)
+                        .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                         .block();
         if (response == null || response.getToken() == null) {
             throw new IllegalStateException("Orquestrador retornou login sem token");

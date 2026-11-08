@@ -26,6 +26,7 @@ package com.serviceportal.bff.client;
 import com.serviceportal.bff.config.ManagerProperties;
 import com.serviceportal.bff.dto.LoginRequest;
 import com.serviceportal.bff.dto.LoginResponse;
+import java.time.Duration;
 import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -44,11 +45,13 @@ public class ManagerAuthService {
 
     private String token;
     private Instant tokenExpiry = Instant.EPOCH;
+    private final Duration deadline;
 
     public ManagerAuthService(
             @Qualifier("managerWebClient") WebClient managerWebClient, ManagerProperties props) {
         this.managerWebClient = managerWebClient;
         this.props = props;
+        this.deadline = HttpTimeouts.deadline(props.getTimeoutMs());
     }
 
     public synchronized String getToken() {
@@ -67,6 +70,7 @@ public class ManagerAuthService {
                         .bodyValue(new LoginRequest(props.getUsername(), props.getPassword()))
                         .retrieve()
                         .bodyToMono(LoginResponse.class)
+                        .timeout(deadline, HttpTimeouts.onTimeout(deadline))
                         .block();
         if (response == null || response.getToken() == null) {
             throw new IllegalStateException("Manager retornou login sem token");

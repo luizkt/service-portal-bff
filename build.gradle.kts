@@ -83,7 +83,10 @@ val coverageIncludes = listOf(
     "com/serviceportal/bff/controller/IntegrationProxyController.class",
     "com/serviceportal/bff/controller/ContractProxyController.class",
     "com/serviceportal/bff/controller/ValidationProxyController.class",
-    "com/serviceportal/bff/controller/BffMenuController.class"
+    "com/serviceportal/bff/controller/BffMenuController.class",
+    // Login via flow executor do Authentik
+    "com/serviceportal/bff/client/AuthentikLoginService.class",
+    "com/serviceportal/bff/controller/LoginController.class"
 )
 
 tasks.named<JacocoReport>("jacocoTestReport") {

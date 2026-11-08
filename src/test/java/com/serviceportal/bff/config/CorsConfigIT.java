@@ -37,9 +37,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
@@ -61,11 +61,11 @@ class CorsConfigIT {
 
     @Autowired private MockMvc mvc;
 
-    @MockBean private JwtDecoder jwtDecoder;
-    @MockBean private OrchestratorAuthService orchestratorAuthService;
-    @MockBean private OrchestratorClient orchestratorClient;
-    @MockBean private ManagerAuthService managerAuthService;
-    @MockBean private ManagerClient managerClient;
+    @MockitoBean private JwtDecoder jwtDecoder;
+    @MockitoBean private OrchestratorAuthService orchestratorAuthService;
+    @MockitoBean private OrchestratorClient orchestratorClient;
+    @MockitoBean private ManagerAuthService managerAuthService;
+    @MockitoBean private ManagerClient managerClient;
 
     @Test
     @DisplayName("preflight de origem permitida recebe os headers CORS")

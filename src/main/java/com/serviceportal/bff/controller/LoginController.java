@@ -24,6 +24,7 @@
 package com.serviceportal.bff.controller;
 
 import com.serviceportal.bff.client.AuthentikLoginService;
+import com.serviceportal.bff.client.AuthentikUnavailableException;
 import com.serviceportal.bff.dto.AuthentikTokenDto;
 import com.serviceportal.bff.dto.LoginRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -68,7 +69,8 @@ public class LoginController {
                                                                 + "\"id_token\":\"eyJhbGciOiJSUzI1NiJ9...\","
                                                                 + "\"expires_in\":3600,"
                                                                 + "\"token_type\":\"Bearer\"}"))),
-        @ApiResponse(responseCode = "401", description = "Credenciais inválidas")
+        @ApiResponse(responseCode = "401", description = "Credenciais inválidas"),
+        @ApiResponse(responseCode = "503", description = "Authentik indisponível ou lento")
     })
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
@@ -79,8 +81,12 @@ public class LoginController {
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", e.getMessage()));
+        } catch (AuthentikUnavailableException e) {
+            log.error("Login unavailable: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "Serviço de login indisponível. Tente novamente."));
         } catch (Exception e) {
-            log.error("Login failed for user '{}': {}", request.getUsername(), e.getMessage());
+            log.error("Login failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Serviço de login indisponível. Tente novamente."));
         }

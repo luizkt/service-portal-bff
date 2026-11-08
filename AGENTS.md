@@ -6,14 +6,14 @@
 repo: service-portal-bff
 tipo: spring-boot-api (BFF, proxy do frontend)
 fonte-de-verdade: build.gradle.kts, src/main/resources/application.yml, src/main/java/com/serviceportal/bff
-atualizado-em: 2026-11-07
+atualizado-em: 2026-11-08
 -->
 
 ## Resumo
 
 Único ponto de entrada do frontend. Valida o JWT do Authentik, serve menu e UI schema (Server Driven UI, hardcoded, sem banco), faz proxy de CRUD para o `service-portal-manager` e de execução para o `generic-orchestrator`. O frontend nunca fala direto com o Manager nem com o Orchestrator.
 
-<!-- gen:size -->Tamanho: 33 arquivos .java em `src/main`, 24 em `src/test`.<!-- /gen:size -->
+<!-- gen:size -->Tamanho: 34 arquivos .java em `src/main`, 24 em `src/test`.<!-- /gen:size -->
 
 Stack: Java 21, Spring Boot 4.1.2 (plano de upgrade concluído em `../docs/plans/PLAN-spring-boot-upgrade.md`; próximas subidas seguem o mesmo método, uma linha por vez), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 3.2.0. Porta `SERVER_PORT` (8081).
 
@@ -78,7 +78,7 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 | Nova rota de flow | método em `FlowProxyController` e em `ManagerClient` ou `OrchestratorClient` |
 | Novo recurso do Manager | novo controller `*ProxyController` e métodos `*Resource` em `ManagerClient` |
 | Parâmetros OAuth2 do frontend | `bff.auth.*` e `AuthConfigController` |
-| Login de usuário | `LoginController` e `AuthentikLoginService` (`bff.auth.authentik-base-url`) |
+| Login de usuário | `LoginController` e `AuthentikLoginService` (`bff.auth.authentik-base-url`, `request-timeout`, `redirect-uri`) |
 | URL ou credencial dos backends | `bff.manager.*`, `bff.orchestrator.*`; beans em `WebClientConfig` |
 | Swagger | `OpenApiConfig`; paths em `springdoc` no `application.yml` |
 
@@ -88,7 +88,7 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - Orchestrator: `ORCHESTRATOR_URL` (`localhost:8080`), `ORCHESTRATOR_USERNAME`, `ORCHESTRATOR_PASSWORD`.
 - Timeouts HTTP: `bff.http.connect-timeout-ms` (`BFF_HTTP_CONNECT_TIMEOUT_MS`, 2000), `bff.manager.timeout-ms` (`MANAGER_TIMEOUT_MS`, 10000) e `bff.orchestrator.timeout-ms` (`ORCHESTRATOR_TIMEOUT_MS`, 30000, execução de fluxo é mais lenta). Aplicados em `WebClientConfig` (Reactor Netty); todo `.block()` dos clients tem prazo (timeout + 2 s) via `HttpTimeouts`.
 - Tokens de serviço (`ManagerAuthService`, `OrchestratorAuthService`): validade vem do claim `exp` do JWT (sem verificar assinatura, só dirige o cache), senão de `expiresIn`/`expires_in` do login, senão 3600 s; renova 60 s antes. `invalidate(token)` descarta o cache; `UnauthorizedRetryFilter` (instalado nos clients) repete a chamada uma vez com token novo ao receber 401.
-- Authentik: `AUTHENTIK_JWKS_URI` (URL interna, acessada pelo container), `AUTHENTIK_ISSUER_URI` (URL pública, igual ao `iss` do token), `AUTHENTIK_M2M_ISSUER_URI`, `AUTHENTIK_CLIENT_ID`, `AUTHENTIK_BASE_URL`.
+- Authentik: `AUTHENTIK_JWKS_URI` (URL interna, acessada pelo container), `AUTHENTIK_ISSUER_URI` (URL pública, igual ao `iss` do token), `AUTHENTIK_M2M_ISSUER_URI`, `AUTHENTIK_CLIENT_ID`, `AUTHENTIK_BASE_URL`, `AUTHENTIK_REQUEST_TIMEOUT` (10s, por chamada do login), `AUTHENTIK_REDIRECT_URI` (`http://localhost:5173/auth/callback`; deve ser idêntico ao redirect URI do provider SPA).
 - Actuator: públicos `/actuator/health/**`, `/actuator/info`, `/actuator/prometheus`. O resto exige HTTP Basic do usuário com role `ACTUATOR`: `ACTUATOR_USERNAME` (default `actuator`) e `ACTUATOR_PASSWORD` (SEM default: vazio = usuário inexistente = 401 sempre). `heapdump` não é exposto; `health` mostra detalhes só `when-authorized`. O SBA lê esses endpoints pelas metadata `spring.boot.admin.client.instance.metadata.user.name`/`.password`, preenchidas com as mesmas variáveis.
 - Guard de segredos: `SECURITY_STRICT=true` ou profile `prod` faz o startup falhar se `MANAGER_PASSWORD`, `ORCHESTRATOR_PASSWORD` ou `SBA_PASSWORD` estiverem em `admin`; nos demais perfis só loga WARN com os nomes (nunca os valores). Senhas não ficam no `ENV` do Dockerfile.
 - CORS: `BFF_CORS_ALLOWED_ORIGINS` (lista separada por vírgula, default `http://localhost:5173`). Em produção/compose defina a origem real do frontend, senão o browser é bloqueado. Headers aceitos: `Authorization`, `Content-Type`, `Accept`.
@@ -114,7 +114,7 @@ Recursos: `src/main/resources/application.yml`, `application-docker.yml`. Testes
 - Rota nova em `/bff/**` exige `@PreAuthorize` explícito: `SecurityConfig` só exige JWT, não grupo.
 - Todo `.java` precisa do header de licença (`license-header.txt`, cópia do arquivo na raiz do monorepo: mantenha igual), senão o Spotless falha.
 - O gate JaCoCo cobre config, clients, `FlowProxyController`, os controllers de proxy e menu, `AuthentikLoginService` e `LoginController`. Mude essas classes com teste.
-- `AuthentikLoginService` usa `java.net.http.HttpClient` (não WebClient) e segue os redirects do flow executor manualmente; `AuthentikLoginServiceTest` roda contra MockWebServer e fixa o comportamento atual: status 4xx/5xx no POST da senha vira `BadCredentialsException` (401), o username aparece nos logs e o redirect URI do PKCE é fixo. A senha nunca pode ir para log (teste dedicado).
+- `AuthentikLoginService` usa `java.net.http.HttpClient` (não WebClient) e segue os redirects do flow executor manualmente; `AuthentikLoginServiceTest` roda contra MockWebServer. Credencial errada (4xx, componente inesperado) vira `BadCredentialsException` (401); timeout, conexão recusada ou 5xx do Authentik viram `AuthentikUnavailableException` (503 no `LoginController`). Resposta JSON malformada não é indisponibilidade (propaga). Nem a senha nem o username podem ir para log (testes dedicados).
 - O `HEALTHCHECK` da imagem usa `/actuator/health/liveness` (`management.endpoint.health.probes.enabled=true`), não `/actuator/health`: o geral devolve 503 com Manager/Orchestrator fora e marcaria o container como unhealthy. `/actuator/health/**` é público na chain do actuator (`ActuatorSecurityConfig`); o resto do actuator exige Basic.
 - Os dois planos de auth são independentes. Não repasse o JWT do usuário ao Manager ou Orchestrator.
 - Todo `.block()` em client novo precisa de `.timeout(deadline, HttpTimeouts.onTimeout(deadline))`; sem prazo, um backend travado prende uma thread do Tomcat.

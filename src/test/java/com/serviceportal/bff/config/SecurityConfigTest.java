@@ -45,6 +45,8 @@ class SecurityConfigTest {
                 config,
                 "allowedIssuers",
                 "http://localhost:9000/application/o/service-portal/,http://localhost:9000/application/o/service-portal-m2m/");
+        ReflectionTestUtils.setField(
+                config, "corsAllowedOrigins", "http://localhost:5173, https://app.example.com");
         return config;
     }
 
@@ -75,8 +77,11 @@ class SecurityConfigTest {
         CorsConfiguration cfg = urlSource.getCorsConfigurations().get("/bff/**");
         assertThat(cfg).isNotNull();
         assertThat(cfg.getAllowedMethods()).contains("GET", "POST", "PUT", "DELETE", "OPTIONS");
-        assertThat(cfg.getAllowedOriginPatterns()).contains("*");
-        assertThat(cfg.getAllowedHeaders()).contains("*");
+        assertThat(cfg.getAllowedOrigins())
+                .containsExactly("http://localhost:5173", "https://app.example.com");
+        assertThat(cfg.getAllowedOriginPatterns()).isNullOrEmpty();
+        assertThat(cfg.getAllowedHeaders())
+                .containsExactly("Authorization", "Content-Type", "Accept");
         assertThat(cfg.getMaxAge()).isEqualTo(3600L);
     }
 }

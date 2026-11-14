@@ -163,6 +163,16 @@ class FlowProxyControllerTest {
         verify(orchestratorClient).executeV2("x", "1.0.0", Map.of("k", "v"));
     }
 
+    @Test
+    @DisplayName("POST .../executions/v3 delegates to OrchestratorClient.executeV3")
+    void executeFlowV3() {
+        when(orchestratorClient.executeV3(eq("x"), eq("1.0.0"), any()))
+                .thenReturn(Map.of("status", "SUCCESS"));
+        var resp = controller.executeFlowV3("x", "1.0.0", Map.of("k", "v"));
+        assertThat(resp.getStatusCode().value()).isEqualTo(200);
+        verify(orchestratorClient).executeV3("x", "1.0.0", Map.of("k", "v"));
+    }
+
     private WebClientResponseException.NotFound notFoundException() {
         return (WebClientResponseException.NotFound)
                 WebClientResponseException.create(404, "Not Found", null, null, null);

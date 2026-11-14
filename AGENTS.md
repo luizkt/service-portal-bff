@@ -23,7 +23,7 @@ Stack: Java 21, Spring Boot 3.4.5 (não atualizar), Gradle Kotlin DSL, WebClient
 |---|---|---|
 | `GET /bff/health`, `GET /bff/auth/config`, `POST /bff/auth/login`, `/actuator/**`, `/swagger-ui/**`, `/v3/api-docs/**` | público | `SecurityConfig`; `controller/BffMenuController`, `AuthConfigController`, `LoginController` |
 | `GET /bff/menu`, `GET /bff/features/{featureId}/ui-schema` | JWT | `controller/BffMenuController` |
-| `/bff/flows...`: lista, detalhe, `/yaml`, `/examples`, CRUD, execução v1 e v2 (POST em executions e executions/v2) | JWT + `ADMIN` ou `WORKFLOWS` | `controller/FlowProxyController` |
+| `/bff/flows...`: lista, detalhe, `/yaml`, `/examples`, CRUD, execução v1, v2 e v3 (POST em executions, executions/v2 e executions/v3) | JWT + `ADMIN` ou `WORKFLOWS` | `controller/FlowProxyController` |
 | `/bff/integrations...` (lista, versões, detalhe, CRUD) | `ADMIN` ou `WORKFLOWS`; escrita só `ADMIN` | `controller/IntegrationProxyController` |
 | `/bff/contracts...` | leitura `ADMIN`, `WORKFLOWS`, `RULES`; escrita `ADMIN`, `WORKFLOWS` | `controller/ContractProxyController` |
 | `/bff/validations...` | `ADMIN` ou `RULES` | `controller/ValidationProxyController` |
@@ -32,7 +32,7 @@ Stack: Java 21, Spring Boot 3.4.5 (não atualizar), Gradle Kotlin DSL, WebClient
 
 1. `SecurityConfig.securityFilterChain` libera as rotas públicas e exige JWT no resto. `jwtDecoder` valida assinatura via JWKS, prazo e `iss` contra `bff.auth.allowed-issuers`.
 2. O claim `groups` vira authority sem prefixo (`jwtAuthenticationConverter`) e é checado por `@PreAuthorize` nos controllers.
-3. O controller chama `client/ManagerClient` (CRUD) ou `client/OrchestratorClient` (execução v1 e v2).
+3. O controller chama `client/ManagerClient` (CRUD) ou `client/OrchestratorClient` (execução v1, v2 e v3).
 4. Os clients usam o token server-to-server de `ManagerAuthService` ou `OrchestratorAuthService`. O token fica em memória e é renovado quando falta menos de 60 s para expirar.
 5. `WebClientResponseException.NotFound` vira 404 no `FlowProxyController`; 409 e 400 também são repassados na criação.
 
@@ -47,7 +47,7 @@ Base: `src/main/java/com/serviceportal/bff/`.
 | `BffApplication` | Entry point |
 | `controller/*` | 7 controllers: menu e UI schema, auth config, login, proxies de flows, integrations, contracts e validations |
 | `client/ManagerClient` | CRUD no Manager. Integrations, contracts e validations usam helpers privados `*Resource` com `/manager/{resource}` |
-| `client/OrchestratorClient` | Execução em `/api/v1/...` e `/api/v2/...` |
+| `client/OrchestratorClient` | Execução em `/api/v1/...`, `/api/v2/...` (threads físicas) e `/api/v3/...` (virtual threads) |
 | `client/ManagerAuthService`, `client/OrchestratorAuthService` | Login `POST /api/auth/tokens` e cache do JWT |
 | `client/AuthentikLoginService` | Login de usuário via Flow Executor do Authentik |
 | `config/SecurityConfig` | Rotas públicas, decoder JWT, conversor de `groups`, CORS de `/bff/**` |

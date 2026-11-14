@@ -86,6 +86,12 @@ public class OrchestratorClient {
                 "/api/v2/flows/{flowId}/versions/{version}/executions", flowId, version, payload);
     }
 
+    public Map<String, Object> executeV3(
+            String flowId, String version, Map<String, Object> payload) {
+        return post(
+                "/api/v3/flows/{flowId}/versions/{version}/executions", flowId, version, payload);
+    }
+
     private Map<String, Object> post(
             String uriTemplate, String flowId, String version, Map<String, Object> payload) {
         return orchestratorWebClient

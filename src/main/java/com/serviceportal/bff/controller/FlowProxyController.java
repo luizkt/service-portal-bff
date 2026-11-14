@@ -51,7 +51,9 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
  * /bff/flows - PUT /bff/flows/{flowId}/versions/{version} - DELETE
  * /bff/flows/{flowId}/versions/{version} - POST /bff/flows/{flowId}/versions/{version}/executions
  * (sequencial — orquestrador v1) - POST /bff/flows/{flowId}/versions/{version}/executions/v2
- * (paralelo — orquestrador v2)
+ * (paralelo, threads físicas — orquestrador v2) - POST
+ * /bff/flows/{flowId}/versions/{version}/executions/v3 (paralelo, virtual threads — orquestrador
+ * v3)
  */
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Flows")
 @RestController
@@ -279,9 +281,9 @@ public class FlowProxyController {
     }
 
     @Operation(
-            summary = "Executar flow (v2 — paralelo)",
+            summary = "Executar flow (v2 — paralelo, threads físicas)",
             description =
-                    "Executa integrações com mesmo 'order' em paralelo via Java Virtual Threads. Delega para o orquestrador v2.")
+                    "Executa integrações com mesmo 'order' em paralelo num pool fixo de threads físicas (platform threads). Delega para o orquestrador v2.")
     @ApiResponse(
             responseCode = "200",
             description = "Execução concluída",
@@ -299,5 +301,28 @@ public class FlowProxyController {
                     String version,
             @RequestBody Map<String, Object> payload) {
         return ResponseEntity.ok(orchestratorClient.executeV2(flowId, version, payload));
+    }
+
+    @Operation(
+            summary = "Executar flow (v3 — paralelo, virtual threads)",
+            description =
+                    "Executa integrações com mesmo 'order' em paralelo via Java Virtual Threads. Delega para o orquestrador v3.")
+    @ApiResponse(
+            responseCode = "200",
+            description = "Execução concluída",
+            content =
+                    @Content(
+                            examples =
+                                    @ExampleObject(
+                                            value =
+                                                    "{\"flowId\":\"create-order-v1\",\"version\":\"1.0.0\",\"status\":\"SUCCESS\",\"result\":{\"validate-client\":{\"clientId\":\"ABC123\",\"active\":true}}}")))
+    @PostMapping("/flows/{flowId}/versions/{version}/executions/v3")
+    public ResponseEntity<Map<String, Object>> executeFlowV3(
+            @Parameter(description = "ID do flow", example = "create-order-v1") @PathVariable
+                    String flowId,
+            @Parameter(description = "Versão SemVer", example = "1.0.0") @PathVariable
+                    String version,
+            @RequestBody Map<String, Object> payload) {
+        return ResponseEntity.ok(orchestratorClient.executeV3(flowId, version, payload));
     }
 }

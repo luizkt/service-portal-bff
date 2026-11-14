@@ -101,4 +101,24 @@ class OrchestratorClientTest {
         assertThat(req.getHeader("Authorization")).isEqualTo("Bearer orch-token");
         assertThat(req.getBody().readUtf8()).contains("DEF456");
     }
+
+    @Test
+    @DisplayName("executeV3 posts to /api/v3/flows/{id}/versions/{v}/executions with Authorization")
+    void executeV3Ok() throws InterruptedException {
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("{\"executionId\":\"xyz\",\"status\":\"SUCCESS\"}"));
+
+        Map<String, Object> resp =
+                client.executeV3("create-order", "1.0.0", Map.of("clientId", "GHI789"));
+        assertThat(resp).containsEntry("executionId", "xyz");
+
+        RecordedRequest req = mockWebServer.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("POST");
+        assertThat(req.getPath()).isEqualTo("/api/v3/flows/create-order/versions/1.0.0/executions");
+        assertThat(req.getHeader("Authorization")).isEqualTo("Bearer orch-token");
+        assertThat(req.getBody().readUtf8()).contains("GHI789");
+    }
 }

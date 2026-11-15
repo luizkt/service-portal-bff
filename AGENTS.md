@@ -6,14 +6,14 @@
 repo: service-portal-bff
 tipo: spring-boot-api (BFF, proxy do frontend)
 fonte-de-verdade: build.gradle.kts, src/main/resources/application.yml, src/main/java/com/serviceportal/bff
-atualizado-em: 2026-11-08
+atualizado-em: 2026-11-14
 -->
 
 ## Resumo
 
 Único ponto de entrada do frontend. Valida o JWT do Authentik, serve menu e UI schema (Server Driven UI, hardcoded, sem banco), faz proxy de CRUD para o `service-portal-manager` e de execução para o `generic-orchestrator`. O frontend nunca fala direto com o Manager nem com o Orchestrator.
 
-<!-- gen:size -->Tamanho: 34 arquivos .java em `src/main`, 24 em `src/test`.<!-- /gen:size -->
+<!-- gen:size -->Tamanho: 35 arquivos .java em `src/main`, 24 em `src/test`.<!-- /gen:size -->
 
 Stack: Java 21, Spring Boot 4.1.2 (plano de upgrade concluído em `../docs/plans/PLAN-spring-boot-upgrade.md`; próximas subidas seguem o mesmo método, uma linha por vez), Gradle Kotlin DSL, WebClient (nunca RestTemplate), OAuth2 Resource Server com JWKS, springdoc 3.2.0. Porta `SERVER_PORT` (8081).
 
@@ -57,6 +57,7 @@ Base: `src/main/java/com/serviceportal/bff/`.
 | `security/SecurityDefaultsGuard` | Avisa (WARN) senhas default `admin`; falha em `prod`/`strict` |
 | `config/SecurityConfig` | Chain da API `@Order(2)`: rotas públicas, decoder JWT, conversor de `groups`, CORS de `/bff/**` |
 | `config/WebClientConfig` | Beans `orchestratorWebClient` e `managerWebClient` |
+| `config/ActuatorObservationConfig` | `ObservationPredicate` que tira `/actuator` de `http_server_requests` e traces |
 | `config/AuthProperties`, `BffProperties`, `ManagerProperties`, `HttpProperties` | `bff.auth`, `bff.orchestrator`, `bff.manager`, `bff.http` |
 | `config/OpenApiConfig` | Metadados do Swagger |
 | `dto/*` | DTOs de menu, UI schema, auth config e login |
